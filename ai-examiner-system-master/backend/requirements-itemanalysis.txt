@@ -1,0 +1,6 @@
+# Extra deps for the item-analysis nightly job ONLY (Cloud Run Job image), NOT the serving
+# backend. Keeps sentence-transformers/torch out of the exam-serving image. torch is installed
+# separately (CPU wheel) in Dockerfile.itemanalysis before this file.
+-r requirements.txt
+sentence-transformers>=2.2.0
+numpy>=1.24.0

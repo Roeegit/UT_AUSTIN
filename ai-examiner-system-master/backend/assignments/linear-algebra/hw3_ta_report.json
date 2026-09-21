@@ -1,0 +1,39 @@
+{
+  "removed": [
+    {
+      "raw_id": "q9",
+      "reason": "Substantially overlaps q8: verifying that the constructed B is nonzero is already an explicit obligation and ownership signal inside the broader construction question. Its marginal ceiling is too low to justify a separate slot."
+    },
+    {
+      "raw_id": "q20",
+      "reason": "The only candidate for exercise 7(a) is too thin for the final pool: an excellent response is essentially one short transpose calculation, with little room to distinguish excellent ownership from competent recall or to sustain two substantive follow-up probes."
+    }
+  ],
+  "confirmed_conflicts": [
+    {
+      "pair": [
+        "q11",
+        "q12"
+      ],
+      "kept_both_because": "Both target exercise 4(b), but one probes conceptual control of the decisive condition while the other probes the necessity direction and completeness of an iff proof. Both are useful at different depths, but a natural strong answer to the first can cover much of the second, so they should not be selected together."
+    }
+  ],
+  "coverage_gaps": [
+    "exercise 7(a) solution is uncovered after quality pruning because its only raw candidate (q20) had too little depth to meet the ownership/understanding bar.",
+    "exercise 1(b), exercise 3(a), exercise 3(b), exercise 3(d), exercise 4(a), exercise 5(a), exercise 5(b), and exercise 7(b) each have only one surviving question because the raw pool supplied only one candidate for each; the candidates were retained because they are valid and stronger than leaving those artefacts uncovered."
+  ],
+  "needs_ta_attention": [
+    {
+      "id": "q14",
+      "note": "For exercise 5(c), confirm that the student's submitted route actually uses the commuting-matrix expansion in a way that makes this theory-technique probe submission-specific rather than a generic restatement of the assignment."
+    },
+    {
+      "id": "q13",
+      "note": "The row-swap mutation in exercise 5(b) depends on matrix dimension and on the student's actual chosen swaps; the examiner should choose a mutation that exists in that dimension and stays answerable by direct matrix/system reasoning."
+    },
+    {
+      "id": "q17",
+      "note": "The characteristic-2 mutation is within the stated field-arithmetic/transpose scope, but it is conceptually harder than the original real-field exercise; verify that characteristic of a field has been discussed sufficiently for this cohort before using it."
+    }
+  ]
+}

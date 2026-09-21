@@ -1,0 +1,135 @@
+{
+  "removed": [
+    {
+      "raw_id": "q2",
+      "reason": "Counterfactual 'what if the coefficient were not invertible' duplicates the stronger, better-anchored composite-modulus counterfactual on ex3(b) (raw q16), and overlapped raw q1's inverse justification on the same line of 1(a)."
+    },
+    {
+      "raw_id": "q4",
+      "reason": "Overlapped three surviving questions at once: the Z_8 completeness question (raw q3), the no-zero-divisors justification (raw q5) and the role-of-2 question (raw q6); a student's answer to q5 plus q3 covers essentially all of its territory."
+    },
+    {
+      "raw_id": "q13",
+      "reason": "Uniqueness-from-echelon-form in 3(a) is substantially covered by the harder, richer claim-direction question on 3(c) (raw q18), which forces the same reversibility/completeness reasoning; cut to reduce an over-covered ex3 and an over-weighted justification dimension."
+    },
+    {
+      "raw_id": "q15",
+      "reason": "Redundant on both sides: the 'why does the inverse exist in Z_11' content duplicates raw q1 (ex1(a)) and the 'normalisation needs an invertible pivot' content duplicates raw q16 (composite-modulus counterfactual)."
+    },
+    {
+      "raw_id": "q25",
+      "reason": "The a=1 collapse in ex5 is already the core of the surviving ex5 justification question (raw q24), whose 5/5 answer explicitly describes the three-equations-coincide case and its parameter count."
+    },
+    {
+      "raw_id": "q33",
+      "reason": "The logic of the negative claim in 6(a) is the same ground as the surviving invariant question (raw q29), whose top answer must already argue that the invariant rules out every possible sequence of operations; the invariance point was folded into that question's excellent_answer."
+    }
+  ],
+  "confirmed_conflicts": [
+    {
+      "pair": [
+        "q01",
+        "q13"
+      ],
+      "kept_both_because": "Both are easy ownership checks of the form 'name and verify the inverse you multiplied by', in different fields (Z_11 vs C); kept for per-file coverage but they must not appear on the same exam."
+    },
+    {
+      "pair": [
+        "q02",
+        "q03"
+      ],
+      "kept_both_because": "A full answer to the Z_8 completeness question includes why the naive x=±1 factoring inference fails, which is exactly the substance of the field-axiom justification question; kept because one is case_completeness (1(b)) and the other justification (1(c))."
+    },
+    {
+      "pair": [
+        "q05",
+        "q06"
+      ],
+      "kept_both_because": "Different difficulty (hard vs easy) on the same point — the collapse of the two roots when 2 is not invertible; the easy one is a useful entry-level probe, the hard one demands separating the three obligations of 'exactly two distinct'."
+    },
+    {
+      "pair": [
+        "q07",
+        "q08"
+      ],
+      "kept_both_because": "'What does -(-a) mean' (easy) and 'what licenses the equality step' (hard) are the what and the why of the same proof; kept for difficulty spread in a thin file (ex2 has only 3 questions)."
+    },
+    {
+      "pair": [
+        "q11",
+        "q12"
+      ],
+      "kept_both_because": "The composite-modulus counterfactual naturally discusses what happens to the homogeneous solution set, overlapping the homogeneous-structure question; kept as medium vs hard variants on ex3(b)."
+    },
+    {
+      "pair": [
+        "q14",
+        "q15"
+      ],
+      "kept_both_because": "Both concern the 3(c) solution set — choice of parameters vs. the two inclusions of the set equality; a strong answer to the hard one drifts into the parameter-count reasoning of the medium one."
+    },
+    {
+      "pair": [
+        "q16",
+        "q18"
+      ],
+      "kept_both_because": "In ex4 these are the 'what generated the exceptional values' and 'what verdict holds at them' halves of the same case analysis; kept as medium vs hard."
+    },
+    {
+      "pair": [
+        "q18",
+        "q19"
+      ],
+      "kept_both_because": "The a=-5 edge case is one of the exceptional values whose verdict the case-completeness question asks about; both hard, kept because the edge_case version drills the 'free variable ⇒ infinitely many' misconception specifically."
+    },
+    {
+      "pair": [
+        "q16",
+        "q20"
+      ],
+      "kept_both_because": "Same skill (tracing exceptional parameter values back to the step that produced them) on two different systems; kept for per-file coverage of ex4 and ex5 but tagged so the exam does not repeat the skill."
+    },
+    {
+      "pair": [
+        "q21",
+        "q22"
+      ],
+      "kept_both_because": "Both concern the degenerate case over Z_3; the medium one asks for the count/wording, the hard one for the re-derivation of the exceptional set."
+    },
+    {
+      "pair": [
+        "q22",
+        "q23"
+      ],
+      "kept_both_because": "The Z_5 counterfactual builds on exactly the reasoning tested by the Z_3 collapse question; both hard, kept because either can serve as the single field-dependence probe for ex5."
+    }
+  ],
+  "coverage_gaps": [
+    "case_completeness is represented by only two questions (q02 on ex1(b), q18 on ex4) — the other exercises do not naturally support an exhaustiveness obligation beyond what other dimensions already cover.",
+    "The raw pool used only six dimension labels; no question carries a seventh dimension label, so one dimension of the intended taxonomy is unrepresented. Nothing in this purely mathematical, code-free assignment obviously supports the missing category, so no question was invented for it.",
+    "ex4, ex5 and ex6 have no easy question: every genuinely easy probe on these parametric/row-equivalence tasks reduces to reciting a verdict or locating a computation, which the interface already highlights. Examiners needing a warm-up on those files should open with q17 or q25 (medium but low-friction).",
+    "ex2 is covered by only three questions (one per real component of the proof); the exercise is short and cannot support more without duplication."
+  ],
+  "needs_ta_attention": [
+    {
+      "id": "q18",
+      "note": "Risk of overrunning the five-minute budget if the examiner asks for verdicts at all exceptional values. Restrict to one exceptional value plus the claim that the list is complete."
+    },
+    {
+      "id": "q16",
+      "note": "Its excellent_answer names candidate exceptional values (-5, 5, 7); these depend on the student's elimination route. Grade against the student's own factorisation, not the listed numbers."
+    },
+    {
+      "id": "q22",
+      "note": "Requires the student to re-run the analysis in Z_3 on the spot if their written work reused the real case verbally. Give credit for a correct re-derivation even if slower; distinguish inertia from genuine reasoning."
+    },
+    {
+      "id": "q26",
+      "note": "The mutation must be a single-entry change to B's bottom-right entry; confirm the student's part (b) matrices before posing it, since some students may have transcribed the matrices differently."
+    },
+    {
+      "id": "q13",
+      "note": "Borderline easy/thin — it survives as an ownership check on the complex arithmetic. Do not extend it into a full recomputation of 3(c); if the student answers instantly, follow up on why every nonzero complex scalar is usable as a pivot."
+    }
+  ]
+}

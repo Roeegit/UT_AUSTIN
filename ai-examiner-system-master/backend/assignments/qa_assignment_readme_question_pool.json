@@ -1,0 +1,119 @@
+[
+  {
+    "id": "te-fork-loop-flow",
+    "file": "taskexec.c",
+    "focus": "The fork() loop that spawns one child per task",
+    "dimension": "code_flow",
+    "difficulty": "medium",
+    "examiner_notes": "Primary probe: ask the student to trace execution when the task file has 3 commands — how many processes exist after the fork loop, and when does each child start running? Follow-up if they answer quickly: what prevents a child from accidentally continuing the parent's loop and forking more children (fork bomb)?",
+    "conflicts_with": ["te-fork-failure"]
+  },
+  {
+    "id": "te-pipe-ready",
+    "file": "taskexec.c",
+    "focus": "The pipe used by each child to send a 'ready' byte before exec",
+    "dimension": "design_choice",
+    "difficulty": "medium",
+    "examiner_notes": "Primary probe: ask why the spec requires a pipe with a ready byte — what problem does it solve compared to just calling exec immediately? Follow-up: what happens to the pipe file descriptors after execvp succeeds — do they survive? What happens if the child crashes before sending the byte?",
+    "conflicts_with": ["te-pipe-leak"]
+  },
+  {
+    "id": "te-dup2-redirect",
+    "file": "taskexec.c",
+    "focus": "Using dup2() to redirect child stdout to a temp file",
+    "dimension": "api_depth",
+    "difficulty": "easy",
+    "examiner_notes": "Primary probe: ask what dup2() does at the file descriptor table level — what happens to the original stdout fd after the call? Follow-up: why does the child open the temp file first and then call dup2, rather than the other way around? Does stderr also get redirected, and should it be?",
+    "conflicts_with": ["te-tmpfile-lifecycle"]
+  },
+  {
+    "id": "te-execvp-parsing",
+    "file": "utils.c",
+    "focus": "Parsing a command string into argv array for execvp()",
+    "dimension": "edge_case",
+    "difficulty": "medium",
+    "examiner_notes": "Primary probe: ask how the student splits 'ls -la /tmp' into the argv array that execvp needs. What approach did they use, and why? Follow-up: what happens if the input has multiple consecutive spaces? What if the command is a single word with no arguments? Why must argv be NULL-terminated?",
+    "conflicts_with": []
+  },
+  {
+    "id": "te-sigint-handler",
+    "file": "taskexec.c",
+    "focus": "SIGINT handler that kills children and does graceful shutdown",
+    "dimension": "design_choice",
+    "difficulty": "hard",
+    "examiner_notes": "Primary probe: ask why SIGTERM is sent first rather than jumping straight to SIGKILL, and what the 3-second window between them is for. Follow-up: ask which functions are async-signal-safe and whether their handler only uses safe functions. If their handler calls printf — ask why that's problematic and what could happen in practice.",
+    "conflicts_with": ["te-sigint-race"]
+  },
+  {
+    "id": "te-waitpid-loop",
+    "file": "taskexec.c",
+    "focus": "The waitpid() collection loop after all children are forked",
+    "dimension": "code_flow",
+    "difficulty": "easy",
+    "examiner_notes": "Primary probe: ask why the parent waits for all children after the fork loop rather than waiting immediately after each fork. What's the advantage of this approach? Follow-up: what's the difference between WIFEXITED and WIFSIGNALED, and how does the student use them to decide what to log?",
+    "conflicts_with": []
+  },
+  {
+    "id": "te-fork-failure",
+    "file": "taskexec.c",
+    "focus": "Handling fork() failure mid-loop",
+    "dimension": "error_handling",
+    "difficulty": "hard",
+    "examiner_notes": "Primary probe: suppose fork() fails on the 3rd task out of 5. What happens to the 2 children already running? Does the parent still wait for them? Are tasks 4 and 5 attempted? Follow-up: what could cause fork() to fail in practice? How does the student's code log this failure?",
+    "conflicts_with": ["te-fork-loop-flow"]
+  },
+  {
+    "id": "te-pipe-leak",
+    "file": "taskexec.c",
+    "focus": "Closing pipe file descriptors to avoid leaks",
+    "dimension": "error_handling",
+    "difficulty": "hard",
+    "examiner_notes": "Primary probe: walk through which process (parent or child) closes which end of the pipe, and at what point. What happens if the parent forgets to close the write end — will read() on the read end ever return 0? Follow-up: if there are 100 tasks, how many file descriptors does the parent accumulate if it doesn't close them?",
+    "conflicts_with": ["te-pipe-ready"]
+  },
+  {
+    "id": "te-file-parsing",
+    "file": "utils.c",
+    "focus": "Reading and parsing the task file, skipping comments and empty lines",
+    "dimension": "edge_case",
+    "difficulty": "easy",
+    "examiner_notes": "Primary probe: how does the student's code detect and skip comment lines (starting with #) and empty lines? Follow-up: what happens if the file has no trailing newline — does the last command still get parsed? What if a command line is longer than the buffer?",
+    "conflicts_with": []
+  },
+  {
+    "id": "te-sigint-race",
+    "file": "taskexec.c",
+    "focus": "Race condition between SIGINT and normal child completion",
+    "dimension": "edge_case",
+    "difficulty": "hard",
+    "examiner_notes": "Primary probe: what happens if SIGINT arrives while the parent is blocked in waitpid()? Does waitpid get interrupted, and how does the student handle EINTR? Follow-up: what if a child exits normally in the gap between the parent sending SIGTERM and SIGKILL — does the parent send SIGKILL to a dead PID? What does kill() return for a nonexistent PID?",
+    "conflicts_with": ["te-sigint-handler"]
+  },
+  {
+    "id": "te-log-format",
+    "file": "utils.c",
+    "focus": "The logging function that writes results to the output file",
+    "dimension": "design_choice",
+    "difficulty": "easy",
+    "examiner_notes": "Primary probe: ask whether the student used fprintf/fopen or write/open for the log file, and why they chose that approach. Follow-up: what are the implications for buffering — if the program crashes mid-run, does the log contain everything written so far? What happens if the signal handler also needs to write to the log?",
+    "conflicts_with": []
+  },
+  {
+    "id": "te-cross-file-data",
+    "file": "utils.c",
+    "focus": "How parsed task data flows from utils.c to the fork loop in taskexec.c",
+    "dimension": "cross_file",
+    "difficulty": "medium",
+    "examiner_notes": "Primary probe: ask how the parsed commands get from the parsing function in utils.c to the execution loop in taskexec.c. Who allocates the memory, who owns it, and how is it passed? Follow-up: why did the student decide to split parsing into utils.c rather than doing it inline in main? What would break if the parsing function were changed to use dynamic allocation instead of a fixed buffer?",
+    "conflicts_with": []
+  },
+  {
+    "id": "te-tmpfile-lifecycle",
+    "file": "taskexec.c",
+    "focus": "The /tmp/taskexec_<pid>.out temporary output files",
+    "dimension": "design_choice",
+    "difficulty": "medium",
+    "examiner_notes": "Primary probe: ask about the temp file naming scheme — why is the PID used in the filename, and what guarantees uniqueness? Follow-up: who is responsible for cleaning up these temp files — the parent, the child, or nobody? What happens if the program is interrupted before cleanup? What if two runs happen simultaneously?",
+    "conflicts_with": ["te-dup2-redirect"]
+  }
+]

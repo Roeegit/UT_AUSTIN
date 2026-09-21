@@ -1,0 +1,80 @@
+steps:
+  # ── Backend ──────────────────────────────────────────────────────────────────
+
+  # Step 1: Build backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - -t
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/backend:latest
+      # Context is the repo root (not ./backend) so courses/<id>/rendered/ is available
+      # to COPY. .dockerignore keeps the image small.
+      - -f
+      - backend/Dockerfile
+      - .
+
+  # Step 2: Push backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/backend:latest
+
+  # Linear Algebra shares this same backend image — a course is a different COURSE_ID, not a
+  # different build. Its FRONTEND is deployed from cloudbuild-frontend-ex1.yaml instead,
+  # because this trigger only fires on backend/** and would never see a frontend change.
+  #
+  # Deliberately no --update-env-vars: COURSE_ID and the secrets live on the service and a
+  # deploy preserves them. Setting them here would silently revert a change made directly to
+  # the service — e.g. switching COURSE_ID from linear-algebra-TEST to the real profile.
+
+  # Step 3: Deploy ai-exam-backend-la — me-west1
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - ai-exam-backend-la
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/backend:latest
+      - --region=me-west1
+
+  # Step 4: Deploy ai-exam-backend-ex1 — me-west1
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - ai-exam-backend-ex1
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/backend:latest
+      - --region=me-west1
+      - --min-instances=0
+      - --update-env-vars=ASSIGNMENT_LABEL_HE=מטלה 1,ASSIGNMENT_LABEL_EN=Assignment 1
+
+  # Step 4: Deploy ai-exam-backend-ex1 — europe-west1
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - ai-exam-backend-ex1
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/backend:latest
+      - --region=europe-west1
+      - --min-instances=0
+      - --update-env-vars=ASSIGNMENT_LABEL_HE=מטלה 1,ASSIGNMENT_LABEL_EN=Assignment 1
+
+  # ── No frontend steps here, deliberately ─────────────────────────────────────
+  #
+  # The exam-frontend-ex1 image build and the exam-frontend-ex1 / exam-admin deploys used to
+  # be repeated in this file. cloudbuild-frontend-ex1.yaml owns that image and those
+  # services; this file owns the backend image and the backend services.
+  #
+  # A backend change needs no frontend redeploy: BACKEND_URL is read at RUNTIME by the
+  # server-side proxy (src/lib/backend-proxy.ts), nothing about the backend is baked in at
+  # build time, and a change to the API contract requires a frontend code change — which
+  # fires the frontend trigger on its own.
+  #
+  # Duplicating them cost a redundant image build on every backend push, left :latest
+  # pointing at a digest no service was running, and put two builds onto the same four
+  # services at once — the `ABORTED: Conflict for resource` failures.
+
+images:
+  - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/backend:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

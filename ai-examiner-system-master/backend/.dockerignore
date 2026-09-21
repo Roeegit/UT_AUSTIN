@@ -1,0 +1,10 @@
+.env
+*.pem
+*.db
+submissions/
+__pycache__/
+*.pyc
+keys/
+*.json.key
+.git/
+hf_cache/

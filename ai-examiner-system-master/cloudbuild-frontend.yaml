@@ -1,0 +1,38 @@
+steps:
+  # Step 1: Build the Docker image with QA mode baked in
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --build-arg
+      - NEXT_PUBLIC_QA_MODE=true
+      - --build-arg
+      - NEXT_PUBLIC_EXAM_DURATION_SECONDS=960
+      - -t
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-qa:latest
+      - ./frontend/exam-frontend
+
+  # Step 2: Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-qa:latest
+
+  # Step 3: Deploy to Cloud Run (QA service — public for QA testers)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-frontend-qa
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-qa:latest
+      - --region=me-west1
+      - --allow-unauthenticated
+      - --set-env-vars=BACKEND_URL=https://ai-exam-backend-dx6rlviobq-zf.a.run.app,QA_MODE=true,EXAM_DURATION_SECONDS=960
+      - --memory=512Mi
+      - --timeout=60
+      - --concurrency=80
+
+images:
+  - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-qa:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

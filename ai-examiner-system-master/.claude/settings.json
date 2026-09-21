@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://ai-exam-backend-1023741330092.me-west1.run.app/health)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Shachar\\Documents\\Bar Ilan\\Semester 4\\Operating System\\Automated Oral Exam\\frontend\\exam-frontend\\src\\app\\api",
+      "c:\\Users\\Shachar\\Documents\\Bar Ilan\\Semester 4\\Operating System\\Automated Oral Exam\\frontend\\exam-frontend\\src\\app\\api\\exam\\roster"
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "_comment": "Files fetched per student for assignment-4 code review. Paths are relative to the repo root (GITHUB_FILES_PATH is empty). The graded deliverables per the README are src/part1.c, src/part2.c, src/part3.c, src/Makefile. id.txt is fetched for identity only and is hidden from the reviewer (see _HIDDEN_FROM_REVIEWER in the script). common.h is provided (not student work) and is included in the README context instead of as a graded file.",
+  "files": [
+    "src/part1.c",
+    "src/part2.c",
+    "src/part3.c",
+    "src/Makefile",
+    "id.txt"
+  ]
+}

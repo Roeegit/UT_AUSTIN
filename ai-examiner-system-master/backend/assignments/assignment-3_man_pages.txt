@@ -1,0 +1,360 @@
+===============================================================
+  SYSCALL & LIBRARY REFERENCE — OS Exercise 3
+  (Signals, CPU Scheduling, and Synchronization)
+  Ctrl+F to jump to a section: search "===== sigaction =====" etc.
+  These are condensed references for your convenience — consult the
+  full `man 2 <name>` pages on your machine for complete details.
+===============================================================
+
+
+=====  sigaction  =====
+sigaction(2)                System Calls Manual                sigaction(2)
+
+NAME
+       sigaction - examine and change a signal action
+
+SYNOPSIS
+       #include <signal.h>
+
+       int sigaction(int signum, const struct sigaction *act,
+                     struct sigaction *oldact);
+
+       struct sigaction {
+           void     (*sa_handler)(int);
+           void     (*sa_sigaction)(int, siginfo_t *, void *);
+           sigset_t   sa_mask;
+           int        sa_flags;
+           void     (*sa_restorer)(void);
+       };
+
+DESCRIPTION
+       sigaction() is used to change the action taken by a process on
+       receipt of a specific signal `signum` (any valid signal except
+       SIGKILL and SIGSTOP).
+
+       If `act` is non-NULL, the new action for signal `signum` is
+       installed from `act`. If `oldact` is non-NULL, the previous
+       action is saved in `oldact`.
+
+       sa_handler specifies the action: SIG_DFL (default), SIG_IGN
+       (ignore), or a pointer to a handler function. sa_mask gives a
+       set of signals that are blocked (added to the process signal
+       mask) during execution of the handler — the triggering signal
+       itself is also blocked unless SA_NODEFER is set. sa_flags
+       modifies behavior (e.g. SA_RESTART to auto-restart certain
+       interrupted system calls, SA_SIGINFO to use sa_sigaction).
+
+       sigaction() is preferred over signal() because its semantics
+       are explicit and portable across systems.
+
+RETURN VALUE
+       0 on success; -1 on error, with errno set.
+
+
+=====  signal  =====
+signal(2)                   System Calls Manual                signal(2)
+
+NAME
+       signal - ANSI C signal handling
+
+SYNOPSIS
+       #include <signal.h>
+
+       typedef void (*sighandler_t)(int);
+       sighandler_t signal(int signum, sighandler_t handler);
+
+DESCRIPTION
+       signal() sets the disposition of the signal `signum` to
+       `handler`, which is SIG_DFL, SIG_IGN, or a programmer-defined
+       handler function.
+
+       The behavior of signal() varies across Unix versions and has
+       historically differed between System V and BSD; for reliable,
+       portable behavior prefer sigaction(). Avoid relying on whether
+       the disposition is reset to SIG_DFL on delivery.
+
+RETURN VALUE
+       The previous value of the signal handler, or SIG_ERR on error.
+
+
+=====  sigprocmask  =====
+sigprocmask(2)              System Calls Manual              sigprocmask(2)
+
+NAME
+       sigprocmask - examine and change blocked signals
+
+SYNOPSIS
+       #include <signal.h>
+
+       int sigprocmask(int how, const sigset_t *set,
+                       sigset_t *oldset);
+
+DESCRIPTION
+       sigprocmask() is used to fetch and/or change the signal mask of
+       the calling thread. The signal mask is the set of signals whose
+       delivery is currently blocked for the caller.
+
+       The behavior depends on `how`:
+         SIG_BLOCK   — the signals in `set` are added to the mask.
+         SIG_UNBLOCK — the signals in `set` are removed from the mask.
+         SIG_SETMASK — the mask is set to `set`.
+
+       If `oldset` is non-NULL, the previous mask is stored there.
+       If `set` is NULL, the mask is unchanged (use to query oldset).
+
+       A blocked signal is not delivered; it stays *pending* until it
+       is unblocked (or its action is set to ignore). SIGKILL and
+       SIGSTOP cannot be blocked.
+
+RETURN VALUE
+       0 on success; -1 on error, with errno set.
+
+
+=====  sigpending  =====
+sigpending(2)              System Calls Manual              sigpending(2)
+
+NAME
+       sigpending - examine pending signals
+
+SYNOPSIS
+       #include <signal.h>
+
+       int sigpending(sigset_t *set);
+
+DESCRIPTION
+       sigpending() returns the set of signals that are pending for
+       delivery to the calling thread — i.e. signals that have been
+       raised while blocked and not yet delivered. The set is stored
+       in `set`.
+
+       NOTE: standard (non-real-time) signals are NOT queued. If the
+       same standard signal is generated multiple times while blocked,
+       only a single instance remains pending. Use sigismember() to
+       test which signals are present in the returned set.
+
+RETURN VALUE
+       0 on success; -1 on error, with errno set.
+
+
+=====  sigsetops (sigemptyset / sigaddset / sigismember)  =====
+sigsetops(3)                  Library Functions                 sigsetops(3)
+
+NAME
+       sigemptyset, sigfillset, sigaddset, sigdelset, sigismember -
+       POSIX signal set operations
+
+SYNOPSIS
+       #include <signal.h>
+
+       int sigemptyset(sigset_t *set);
+       int sigfillset(sigset_t *set);
+       int sigaddset(sigset_t *set, int signum);
+       int sigdelset(sigset_t *set, int signum);
+       int sigismember(const sigset_t *set, int signum);
+
+DESCRIPTION
+       These functions operate on signal sets (`sigset_t`), used by
+       sigaction(), sigprocmask(), sigpending(), and others.
+
+       sigemptyset() initializes `set` to empty. sigfillset()
+       initializes it to contain all signals. sigaddset() and
+       sigdelset() add/remove `signum`. A set MUST be initialized with
+       sigemptyset() or sigfillset() before use — an uninitialized
+       sigset_t has undefined contents.
+
+       sigismember() tests whether `signum` is a member of `set`. This
+       is how you inspect a pending set returned by sigpending().
+
+RETURN VALUE
+       sigismember() returns 1 if member, 0 if not, -1 on error.
+       The others return 0 on success, -1 on error.
+
+
+=====  raise  =====
+raise(3)                      Library Functions                    raise(3)
+
+NAME
+       raise - send a signal to the caller
+
+SYNOPSIS
+       #include <signal.h>
+
+       int raise(int sig);
+
+DESCRIPTION
+       raise() sends signal `sig` to the calling process (or thread).
+       It is equivalent to kill(getpid(), sig) in a single-threaded
+       program. If the signal handler does not return (or sig is
+       blocked), raise() may behave accordingly.
+
+RETURN VALUE
+       0 on success; nonzero on failure.
+
+
+=====  kill  =====
+kill(2)                     System Calls Manual                     kill(2)
+
+NAME
+       kill - send a signal to a process or process group
+
+SYNOPSIS
+       #include <signal.h>
+
+       int kill(pid_t pid, int sig);
+
+DESCRIPTION
+       kill() sends the signal `sig` to the process or process group
+       specified by `pid`:
+         pid > 0   — send to the process with that PID.
+         pid == 0  — send to every process in the caller's group.
+         pid == -1 — send to every process the caller may signal.
+         pid < -1  — send to the process group with id -pid.
+
+       If `sig` is 0, no signal is sent but error checking is still
+       performed (useful to test for the existence of a PID). To send
+       a signal, the sender must have suitable permissions.
+
+       Common uses here: a parent driving a child with SIGSTOP/SIGCONT
+       (pause/resume), or a custom/real-time signal for handshaking.
+
+RETURN VALUE
+       0 on success; -1 on error, with errno set.
+
+
+=====  alarm  =====
+alarm(2)                    System Calls Manual                    alarm(2)
+
+NAME
+       alarm - set an alarm clock for delivery of a signal
+
+SYNOPSIS
+       #include <unistd.h>
+
+       unsigned int alarm(unsigned int seconds);
+
+DESCRIPTION
+       alarm() arranges for a SIGALRM signal to be delivered to the
+       calling process in `seconds` seconds. If `seconds` is 0, any
+       pending alarm is cancelled.
+
+       Each process may have only ONE alarm timer; a new alarm()
+       replaces any previously scheduled one. The default disposition
+       of SIGALRM terminates the process, so install a handler (or
+       block-and-wait for it) before relying on it.
+
+RETURN VALUE
+       The number of seconds remaining on any previously scheduled
+       alarm, or 0 if there was none.
+
+
+=====  pause  =====
+pause(2)                    System Calls Manual                    pause(2)
+
+NAME
+       pause - wait for signal
+
+SYNOPSIS
+       #include <unistd.h>
+
+       int pause(void);
+
+DESCRIPTION
+       pause() suspends the calling process until a signal is
+       delivered whose action is either to run a handler or to
+       terminate the process. It does NOT sleep for a fixed time — it
+       returns only when *some* (unblocked, non-ignored) signal
+       arrives.
+
+       BEWARE the race: if the signal you expect arrives *before* you
+       call pause(), pause() will block waiting for the next signal
+       and may hang. Patterns that avoid this include blocking the
+       signal first and using sigsuspend() to atomically unblock-and-
+       wait, or checking a flag set by the handler.
+
+RETURN VALUE
+       pause() returns only when a handler-caught signal occurs,
+       returning -1 with errno set to EINTR.
+
+
+=====  fork  =====
+fork(2)                     System Calls Manual                     fork(2)
+
+NAME
+       fork - create a child process
+
+SYNOPSIS
+       #include <unistd.h>
+
+       pid_t fork(void);
+
+DESCRIPTION
+       fork() creates a new process by duplicating the calling
+       process. The child is an almost exact copy of the parent
+       (separate address space — memory is copied, not shared). The
+       child inherits copies of the parent's file descriptors and
+       signal dispositions (pending signals are NOT inherited, and the
+       child's pending set is empty).
+
+       Execution continues in BOTH processes after the call; they are
+       distinguished only by the return value.
+
+RETURN VALUE
+       On success: the child's PID is returned in the parent, and 0 is
+       returned in the child. On failure: -1 in the parent, no child
+       created, errno set.
+
+
+=====  waitpid  =====
+waitpid(2)                  System Calls Manual                  waitpid(2)
+
+NAME
+       wait, waitpid - wait for process state changes
+
+SYNOPSIS
+       #include <sys/wait.h>
+
+       pid_t wait(int *wstatus);
+       pid_t waitpid(pid_t pid, int *wstatus, int options);
+
+DESCRIPTION
+       waitpid() suspends the calling process until a child specified
+       by `pid` changes state (e.g. terminates). Reaping a terminated
+       child prevents it from becoming a zombie.
+
+       `pid` selects which child: > 0 a specific PID, -1 any child,
+       0 any child in the caller's group. `options` is a bitmask:
+         WNOHANG    — return immediately if no child has exited.
+         WUNTRACED  — also report children that have stopped.
+         WCONTINUED — also report children resumed by SIGCONT.
+
+       Inspect `wstatus` with WIFEXITED/WEXITSTATUS,
+       WIFSIGNALED/WTERMSIG, WIFSTOPPED, WIFCONTINUED.
+
+RETURN VALUE
+       The PID of the child whose state changed; 0 with WNOHANG when
+       none is ready; -1 on error.
+
+
+=====  NOTES: signals you'll likely use  =====
+
+   SIGSTOP / SIGCONT
+       SIGSTOP pauses a process; SIGCONT resumes it. SIGSTOP (like
+       SIGKILL) cannot be caught, blocked, or ignored. A parent
+       scheduler can pause/resume a child slice with
+       kill(child, SIGSTOP) / kill(child, SIGCONT).
+
+   SIGALRM
+       Delivered by alarm(); default action terminates the process.
+
+   Real-time signals (SIGRTMIN .. SIGRTMAX)
+       Unlike standard signals, real-time signals ARE queued (multiple
+       instances are not coalesced) and are delivered in a defined
+       order. They can be useful for reliable parent/child
+       handshaking. Reference them as SIGRTMIN, SIGRTMIN+1, etc.
+
+   Async-signal-safety
+       Only a restricted set of functions may be called safely inside
+       a signal handler (see `man 7 signal-safety`). write(2) is
+       async-signal-safe; printf(3) is NOT. Prefer write() for output
+       from within handlers, and keep handler bodies minimal (e.g.
+       set a volatile sig_atomic_t flag and act on it in main flow).

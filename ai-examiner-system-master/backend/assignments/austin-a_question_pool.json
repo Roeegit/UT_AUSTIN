@@ -1,0 +1,60 @@
+{
+  "questions": [
+    {
+      "id": "q1_delta",
+      "files": [
+        "failed.java",
+        "accepted.java"
+      ],
+      "focus": "Wrong incremental term in the subtractive loop: subtracting n(n+1)(2n+1) (i.e. 6·f(n), the whole prefix sum) instead of 6·n² on every iteration",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "failed.java: `fn -= ((n*n) + n)*((2*n) + 1);` inside `while(fn > 0)` versus accepted.java: `f(n) = n*(n+1)*(2*n+1)/6` evaluated once per candidate inside the binary search.",
+      "examiner_notes": "Student must recognise that n(n+1)(2n+1) IS 6·f(n) — the closed form for the ENTIRE sum 1²+…+n² — so subtracting it repeatedly effectively tests whether Σ_{j=1..n} f(j) reaches k, not whether f(n) = k. The correct decrement would have been 6*n*n. Push for an explicit counterexample: k = 385 (n = 10) makes the loop stop at n = 8 because Σf(j) up to 8 = 540 ≥ 385 while Σ up to 7 = 336 < 385. Good answers explain the growth mismatch (Σf ~ n⁴/12 vs f ~ n³/3) so the returned n is too small for large inputs, even though small inputs (n ≤ 5) coincidentally match.",
+      "bad_versions_to_avoid": "Claiming the loop was only 'too slow' and otherwise correct; saying the bug is the `if(fn == 0) break;` placement; vague 'off-by-one' answers without identifying that the subtracted quantity is the cumulative sum; asserting the formula in myfunction was simply mistyped without saying what the correct per-step term (6n²) is.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q2_no_solution",
+      "files": [
+        "failed.java",
+        "accepted.java"
+      ],
+      "focus": "Handling inputs k that are not a pyramidal number — returning -1 versus falling out of the loop with a bogus n",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "failed.java: `while(fn > 0){ ... if(fn == 0) break; n++; } return n;` versus accepted.java: `return -1;` after the binary search terminates with lo > hi.",
+      "examiner_notes": "Listen for the observation that the failed code has no 'no answer' path at all: once fn goes negative the while-condition simply ends the loop and the current n is printed as if it were a solution. Ask what the failed program prints for a k that is not in the sequence (e.g. k = 7 or k = 100) and what the accepted one prints. Strong answers also note that the accepted version only returns mid when f(mid) == k exactly, so exact-match semantics are enforced, and that the sentinel -1 is what the statement requires.",
+      "bad_versions_to_avoid": "Saying 'the failed version returns 0' or 'throws an exception'; claiming the `fn == 0` check is sufficient to detect the no-solution case; confusing 'no solution' with 'input too large'.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q3_complexity_bound",
+      "files": [
+        "failed.java",
+        "accepted.java"
+      ],
+      "focus": "O(n) scan per query versus O(log n) binary search, and the derivation of the hard-coded upper bound hi = 1512307",
+      "dimension": "api_depth",
+      "difficulty": "hard",
+      "anchor": "failed.java: `while(fn > 0){ ... n++; }` executed for every one of the T queries; accepted.java: `long lo = 1, hi = 1512307; while (lo <= hi) { long mid = (lo + hi) >>> 1; ... }`",
+      "examiner_notes": "Expect per-query cost analysis: the linear loop is proportional to the answer n (up to ~1.5·10⁶ for 64-bit k), so with many test cases it is far too slow, while binary search is ~21 iterations. Then probe the constant: 1512307 is the largest n with f(n) = n(n+1)(2n+1)/6 ≤ ~10¹⁸ (roughly (3k)^{1/3}), i.e. the search space is capped so that (a) it covers all valid inputs and (b) f(mid) never overflows a signed long — n·(n+1)·(2n+1) ≈ 2n³ ≈ 7·10¹⁸ stays under 9.22·10¹⁸. Strong answers mention the multiplication is done before dividing by 6, so the intermediate product is the overflow-critical quantity.",
+      "bad_versions_to_avoid": "Saying binary search is O(1) or O(log k) without connecting it to the number of iterations; treating 1512307 as an arbitrary 'big enough' magic number; ignoring the overflow rationale; claiming the linear version is fine because 'n is small'.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q4_mutation",
+      "files": [
+        "accepted.java",
+        "failed.java"
+      ],
+      "focus": "Robustness of the binary search under mutation: monotonicity requirement, loop invariant, and overflow if the bound is raised",
+      "dimension": "counterfactual_mutation",
+      "difficulty": "hard",
+      "anchor": "accepted.java: `while (lo <= hi)`, `long mid = (lo + hi) >>> 1;`, `if (v < k) lo = mid + 1; else hi = mid - 1;`",
+      "examiner_notes": "Pose three mutations. (1) Change hi to Long.MAX_VALUE/2 or 10¹⁸: ask what breaks — n*(n+1)*(2*n+1) overflows to negative/garbage, monotonicity of f is destroyed and the search can return -1 or a wrong mid; also (lo+hi) could overflow, which is exactly why >>> 1 on a non-negative sum is used. (2) Change `while (lo <= hi)` to `while (lo < hi)`: the single-element window is never tested, so exact answers where lo == hi are missed and -1 is returned. (3) Ask why binary search is valid at all: f is strictly increasing for n ≥ 1, which the failed subtractive scan never exploits. Listen for an explicit correctness argument (invariant: the answer, if it exists, always lies in [lo, hi]).",
+      "bad_versions_to_avoid": "Answering that >>> 1 is 'just a faster divide by 2' with no overflow context; claiming `lo < hi` works identically; asserting the search still works after overflow because 'longs are big'; failing to state monotonicity as the precondition for binary search.",
+      "conflicts_with": []
+    }
+  ]
+}

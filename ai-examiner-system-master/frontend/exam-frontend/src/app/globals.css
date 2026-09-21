@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-heebo: "Heebo", sans-serif;
+  }
+}
+
+html, body {
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+textarea, input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.highlight-line {
+  background-color: rgba(250, 204, 21, 0.2) !important;
+  border-left: 3px solid #facc15 !important;
+}
+
+.highlight-glyph {
+  background-color: #facc15;
+  width: 4px !important;
+  margin-left: 3px;
+}
+
+/* Maths is always left-to-right, whatever the surrounding prose does. The viewer sets
+   dir="rtl" so Hebrew sentences order correctly around embedded maths, but that also
+   reverses KaTeX's inline boxes — matrix delimiters came out mirrored, `)matrix(` — and
+   flips the row of an equation. `isolate` keeps each maths run its own bidi island so it
+   cannot be reordered by the paragraph around it. */
+.markdown-line .katex,
+.markdown-line .katex-display {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+}
+
+/* MarkdownViewer renders one source line per row, so KaTeX's display defaults fight the
+   layout: `$$…$$` would centre itself and add a 1em margin above and below, breaking the
+   alignment with the line-number gutter and making a proof three times taller than it is. */
+.markdown-line .katex-display {
+  margin: 0;
+  text-align: left;
+}
+
+.markdown-line .katex-display > .katex {
+  text-align: left;
+}
+
+/* Long expressions scroll within their own row rather than widening the panel. */
+.markdown-line .katex-display > .katex > .katex-html {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}

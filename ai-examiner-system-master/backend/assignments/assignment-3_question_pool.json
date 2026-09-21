@@ -1,0 +1,434 @@
+{
+  "analysis": {
+    "required_files": {
+      "implement": [
+        "ex3.c",
+        "Focus-Mode.c",
+        "CPU-Scheduler.c"
+      ],
+      "provided": [
+        "ex3.c (skeleton stub)",
+        "Focus-Mode.c (template)",
+        "CPU-Scheduler.c (template)",
+        "Focus-Mode-Tests/ (inputs + expected outputs)",
+        "CPU-Scheduler-Tests/ (5 CSVs + expected outputs)"
+      ]
+    },
+    "file_functions": {
+      "ex3.c": [
+        "argument-count validation block — exits with the usage message when argc != 4",
+        "mode-name validation block — exits with usage when argv[1] is neither \"Focus-Mode\" nor \"CPU-Scheduler\" (case-sensitive)",
+        "Focus-Mode dispatch — parses argv[2]/argv[3] as ints and calls runFocusMode(numOfRounds, roundDuration)",
+        "CPU-Scheduler dispatch — passes argv[2] as CSV path and atoi(argv[3]) as time quantum into runCPUScheduler(...)"
+      ],
+      "Focus-Mode.c": [
+        "runFocusMode(numOfRounds, roundDuration) — top-level loop over rounds and per-round input cycles",
+        "signal registration — sigaction handlers for the 3 chosen distraction signals",
+        "signal blocking — sigprocmask to block all 3 distraction signals on entering Focus Mode / each round",
+        "input-to-signal mapping — translates user input 1/2/3 into raising the corresponding chosen signal (and 'q' to end the round early, invalid input ignored but consuming an iteration)",
+        "pending-distraction check — sigpending + sigismember to discover which distractions are pending at round end, reported in fixed 1,2,3 order without duplicates",
+        "unblock-and-handle phase — unblocks signals so pending handlers fire, printing the per-distraction waiting line and its [Outcome:] line",
+        "no-distraction case — prints 'No distractions reached you this round.'"
+      ],
+      "CPU-Scheduler.c": [
+        "runCPUScheduler(csvPath, timeQuantum) — orchestrates running all four algorithms in order FCFS -> SJF -> Priority -> Round Robin on the same data",
+        "CSV parsing — reads each line into a process record (name, description, arrival, burst, priority)",
+        "stable pre-sort by arrival time — preserves CSV order on ties",
+        "FCFS scheduler — arrival-order non-preemptive selection",
+        "SJF scheduler — among arrived & waiting, pick shortest burst; tie -> CSV order",
+        "Priority scheduler — among arrived & waiting, pick lowest priority number; tie -> CSV order",
+        "Round Robin scheduler — fixed quantum, requeue remainder to tail of ready queue",
+        "child-process execution simulation — fork() a child per running slice, alarm()+pause() to consume burst/quantum seconds, SIGSTOP/SIGCONT or SIGRTMIN coordination, kill() to drive it",
+        "idle handling — emits 'START -> END: Idle.' and advances the clock when no process is ready",
+        "timeline printing — 'START -> END: NAME Running DESCRIPTION.' lines using async-signal-safe output",
+        "report computation — average waiting time (FCFS/SJF/Priority, 2 decimals) and total turnaround time (Round Robin)"
+      ]
+    },
+    "os_concepts_used": [
+      {
+        "concept": "Signal registration / disposition",
+        "anchor": "README: 'Signal registration (sigaction)'; 'Submissions must use all of the following methods: sigaction, sigprocmask, sigpending, and sigismember in this part.'"
+      },
+      {
+        "concept": "Signal blocking and the process signal mask",
+        "anchor": "README: 'Blocks signals during each focus round.' and 'Signal blocking/unblocking (sigprocmask)'."
+      },
+      {
+        "concept": "Pending signals and the fact that standard signals are not queued",
+        "anchor": "README: 'checks for pending signals, unblocks them, and handles them one by one'; 'identical signals are not queued'; 'Handling pending signals (sigpending, sigismember)'."
+      },
+      {
+        "concept": "Process creation with fork()",
+        "anchor": "README: 'fork() to create child processes (DO NOT use threads...)'."
+      },
+      {
+        "concept": "Inter-process signalling with kill() and stop/continue control",
+        "anchor": "README: 'kill() and sigaction() or signal() to communicate with them'; 'Coordinate child processes using SIGSTOP/SIGCONT signals to pause/resume'."
+      },
+      {
+        "concept": "Simulated time / alarm-driven blocking with alarm() and pause()",
+        "anchor": "README: 'alarm() and pause() to simulate time and control execution'; 'use the alarm system call with the process's burst time'."
+      },
+      {
+        "concept": "Async-signal-safety of output inside handlers",
+        "anchor": "README tip: 'It's recommended to use write rather than printf for output operations as it's async-signal-safe.'"
+      },
+      {
+        "concept": "Race conditions / determinism in signal-and-alarm coordination",
+        "anchor": "README: 'Be mindful of synchronization and race conditions... to ensure deterministic output on every execution'; 'The simulation should be fully deterministic'."
+      },
+      {
+        "concept": "CPU scheduling policies (FCFS, SJF, Priority, Round Robin) and metrics (waiting time, turnaround time)",
+        "anchor": "README 'Scheduling Algorithms to Implement' section and 'Key Definitions' (Waiting Time, Average Waiting Time, Total Turnaround Time)."
+      },
+      {
+        "concept": "Stable ordering / deterministic tie-breaking",
+        "anchor": "README: 'preserve their original order from the CSV file (stable sort)' and the 'Tie-breaking rule' paragraph."
+      }
+    ],
+    "file_interactions": "ex3.c is the entry point: it validates argc and argv[1], then routes to runFocusMode(int,int) in Focus-Mode.c or runCPUScheduler(char*,int) in CPU-Scheduler.c, both pulled in via #include of the .c files. Argument strings are converted (atoi) in ex3.c before being passed as typed parameters. Inside CPU-Scheduler.c the parent process is the 'scheduler/kernel' and each running slice is a forked child it controls via alarm/pause and kill/SIGSTOP/SIGCONT(/SIGRTMIN); the child consumes simulated time and the parent prints the timeline and accumulates metrics. Focus-Mode.c is self-contained: it manipulates its own signal mask, raises signals in response to user input, then drains pending signals through registered handlers.",
+    "key_decisions": [
+      "Which 3 concrete signals to map to email/reminder/doorbell (and whether to use real-time signals), given SIGKILL/SIGSTOP are excluded and standard signals don't queue.",
+      "How to drive child timing and parent/child handshake in the scheduler: alarm()+pause() in the child vs. parent-side control, and whether to use SIGSTOP/SIGCONT vs SIGRTMIN to start/stop a slice deterministically.",
+      "How the ready queue and 'has arrived & waiting' set are represented and re-scanned each step (especially for SJF/Priority selection and for detecting idle gaps).",
+      "How Round Robin requeues a partially-finished process and where in the queue order newly-arriving processes sit relative to a requeued one.",
+      "What data structure / indexing preserves CSV original order so the stable sort and tie-breaks are reproducible.",
+      "How outcome/timeline output is emitted safely relative to signal handlers (write vs printf, and what is printed from the handler vs the main flow)."
+    ],
+    "provided_vs_implement_source": "given"
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "files": [
+        "ex3.c"
+      ],
+      "focus": "the argument parsing step that converts argv[2]/argv[3] before calling into a mode",
+      "dimension": "design_choice",
+      "difficulty": "easy",
+      "anchor": "README: 'You don't need to deeply validate the argument values ... just check that the argument count is correct ... and the first argument is either ...' — licenses asking why no numeric validation is done.",
+      "examiner_notes": "Goal: confirm the student understands the README explicitly relieves them of validating numeric arguments, and what the consequence is (e.g. atoi on non-numeric yields 0). A weak answer treats the missing validation as a bug; a strong answer ties the choice to the spec and notes the downstream effect of a 0 round count / quantum. Ownership signal: they can state what their program does on './ex3 Focus-Mode abc 3' without guessing.",
+      "bad_versions_to_avoid": "Avoid implying they should have added validation; the spec forbids requiring it. Keep it to the consequence of the chosen parsing.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q02",
+      "files": [
+        "Focus-Mode.c"
+      ],
+      "focus": "the choice of which 3 concrete signals back the email/reminder/doorbell distractions",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README: 'You may choose any 3 Unix signals (except SIGKILL or SIGSTOP) to simulate each of these distractions, just ensure to stay consistent.' — the student genuinely chose these.",
+      "examiner_notes": "Goal: personal ownership of a free decision. Ask why these particular signals and what constraints ruled others out. A real author can name their three and explain a hazard they avoided — e.g. picking a signal whose default action would terminate the process before they registered a handler, or one already used by alarm. Listen for awareness that the default disposition matters between program start and sigaction registration.",
+      "bad_versions_to_avoid": "Don't accept a generic 'I used SIGUSR1/2' recitation; push on the reasoning and the one extra signal they needed beyond the two SIGUSR slots.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q03",
+      "files": [
+        "Focus-Mode.c"
+      ],
+      "focus": "the pending-distraction reporting step that lists distractions in fixed 1,2,3 order without duplicates",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "README: 'listed in the same order as defined above (1, 2, 3), without duplicates — as we discussed in class, identical signals are not queued.'",
+      "examiner_notes": "Goal: surface understanding that standard signals coalesce — repeating the same distraction within a round leaves a single pending bit. Tie it to their sigpending/sigismember loop and probe why repeats of one distraction yield only one outcome line. Ownership signal: they attribute the no-duplicate behavior to kernel-level non-queuing of standard signals rather than to dedup logic they wrote, and can distinguish the two.",
+      "bad_versions_to_avoid": "Don't let them claim they manually de-duplicated if the dedup is actually the kernel's doing; and don't ask them to recite the sigismember signature.",
+      "conflicts_with": [
+        "q06"
+      ]
+    },
+    {
+      "id": "q04",
+      "files": [
+        "Focus-Mode.c"
+      ],
+      "focus": "the order of blocking signals relative to registering their handlers at Focus Mode startup",
+      "dimension": "code_flow",
+      "difficulty": "hard",
+      "anchor": "README: 'Entering Focus Mode. All distractions are blocked.' plus 'Signal registration (sigaction)' and 'Blocks signals during each focus round' — both setup steps are required.",
+      "examiner_notes": "Goal: trace the setup sequence and reason about the window between process start and the block/register calls. Ask what would happen if a distraction's signal arrived before sigprocmask blocked it, given that signal's default action. A student who owns the code explains their ordering of sigaction vs sigprocmask and why a default-terminating signal arriving early would be unsafe. Distinguishes someone who copied boilerplate from someone who reasoned about the startup race.",
+      "bad_versions_to_avoid": "Avoid turning this into a pure lecture on default dispositions; keep it anchored to the order of their own two setup calls.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q05",
+      "files": [
+        "Focus-Mode.c"
+      ],
+      "focus": "the early-quit path where 'q' ends the round before all roundDuration iterations are consumed",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README: 'If the user enters q, the current round should end immediately, and the program should proceed to check pending distractions and then continue to the next round without waiting for the remaining inputs.'",
+      "examiner_notes": "Goal: confirm the student handles loop termination correctly — 'q' breaks the per-iteration loop but still runs the pending-check phase (see Round 4/5 in the sample, where a single distraction or none is reported after early quit). Ask them to trace a round of duration 3 where input is '2' then 'q'. Ownership signal: they know the pending check still fires and produces the reminder line, not that the whole program ends.",
+      "bad_versions_to_avoid": "Don't ask them to locate the break; ask what state the round is in after 'q' and what still prints.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q06",
+      "files": [
+        "Focus-Mode.c"
+      ],
+      "focus": "the unblock-and-drain step that lets pending handlers fire one at a time at round end",
+      "dimension": "api_depth",
+      "difficulty": "hard",
+      "anchor": "README: 'checks for pending signals, unblocks them, and handles them one by one' and 'Handling pending signals (sigpending, sigismember)'.",
+      "examiner_notes": "Goal: understanding of the relationship between sigpending (inspect without delivering) and the actual delivery that happens when sigprocmask unblocks. Probe how they guarantee the required listing order given that delivery order of multiple pending standard signals is not guaranteed by the order of unblocking. A strong author explains they read the pending set and drive the ordered printing themselves rather than relying on delivery order. Surfaces students who assume unblocking delivers in numeric order.",
+      "bad_versions_to_avoid": "Don't accept 'I just unblocked and they came out in order' without probing how order is actually enforced.",
+      "conflicts_with": [
+        "q03"
+      ]
+    },
+    {
+      "id": "q07",
+      "files": [
+        "Focus-Mode.c"
+      ],
+      "focus": "what work is done inside the signal handlers versus in the main round flow",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README tip: 'use write rather than printf ... as it's async-signal-safe' combined with 'handles them one by one' — the student decided how much logic lives in the handler.",
+      "examiner_notes": "Goal: async-signal-safety ownership. Ask what their handler actually does (set a flag? print directly?) and why. A strong answer either keeps handlers minimal and prints from the main flow, or justifies write-based printing inside the handler on async-signal-safety grounds. Distinguishes copy-paste from a deliberate handler-design choice.",
+      "bad_versions_to_avoid": "Don't make it a definition quiz on 'what is async-signal-safe'; tie it to what their specific handler body contains.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q08",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "the use of alarm() plus pause() to consume a process's burst time in the simulated run",
+      "dimension": "api_depth",
+      "difficulty": "hard",
+      "anchor": "README: 'use the alarm system call with the process's burst time ... pause the process for the specified duration' and 'alarm() and pause() to simulate time'.",
+      "examiner_notes": "Goal: genuine understanding of alarm/pause semantics — alarm schedules a SIGALRM after N seconds, pause blocks until any signal is delivered. Ask why pause returns at the right moment and what would happen if some other signal arrived first. A real author explains the SIGALRM-handler-then-pause-returns chain and the danger of a signal racing the pause. Surfaces students who think pause sleeps for a fixed duration.",
+      "bad_versions_to_avoid": "Avoid 'what does pause do' in isolation; require them to connect it to a concrete burst length in their timeline.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q09",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "the fork()-per-slice model and what the child versus parent each do during a running slice",
+      "dimension": "cross_file",
+      "difficulty": "hard",
+      "anchor": "README: 'fork() to create child processes' and 'kill() and sigaction()/signal() to communicate with them' and 'Coordinate child processes using SIGSTOP/SIGCONT'.",
+      "examiner_notes": "Goal: ownership of the process-coordination design. Ask who counts the clock, who prints the timeline line, and how the parent knows a slice finished. A strong author cleanly separates parent-as-scheduler (selection, timeline, metrics) from child-as-running-process (consumes alarm/pause time), and explains the handshake (SIGSTOP/SIGCONT or SIGRTMIN, kill, wait). Distinguishes a coherent design from a vague 'I forked something'.",
+      "bad_versions_to_avoid": "Don't let it sprawl into all four algorithms at once; keep it to one slice's parent/child division of labor.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q10",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "the SJF selection step that picks among processes that have already arrived and are waiting",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README: 'SJF ... Among all processes that have arrived and are waiting, the one with the shortest burst time runs next.'",
+      "examiner_notes": "Goal: confirm SJF considers only processes that have arrived by the current clock, not the globally shortest job. Have them trace selection at a moment where a not-yet-arrived shorter job exists, and justify why it isn't chosen. A strong author reasons from their own arrived-and-waiting set; surfaces a 'global shortest' misunderstanding.",
+      "bad_versions_to_avoid": "Don't ask them to define SJF; make them trace their own selection at a moment where arrival status changes the answer.",
+      "conflicts_with": [
+        "q17"
+      ]
+    },
+    {
+      "id": "q11",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "idle-period detection and the alarm-based advance when no process has arrived yet",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README: 'Use alarm similarly to simulate idle time when no processes are ready to run' and the sample output line '3 -> 4: Idle.' plus the rule that idle time does not count as waiting.",
+      "examiner_notes": "Goal: ownership of the idle gap. Probe how their loop detects that nothing is ready at the current clock and how long it idles before the next arrival, tying to an idle entry in the sample timeline. A strong author explains advancing the clock to the next arrival and that the gap is excluded from waiting-time accounting. Distinguishes someone who special-cased idle from someone whose timeline would skip or mis-time it.",
+      "bad_versions_to_avoid": "Don't bundle idle handling with the waiting-time formula in one breath; pick the gap detection as the single focus.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q12",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "the Round Robin ordering decision when a requeued process and a freshly-arrived process compete for the same position in the ready queue",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "README: 'When a process's quantum expires and it still has remaining work, it goes back to the end of the ready queue'; the course explicitly permits any consistent convention for ordering a requeued process relative to processes arriving during the same slice.",
+      "examiner_notes": "Goal: ownership and INTERNAL CONSISTENCY of the student's own chosen queue convention — NOT conformance to any particular rule. The assignment allows different consistent logics for whether a process requeued at the end of its quantum is placed before or after a process that arrived during that quantum, so there is no single correct answer here and the examiner must NOT push toward 'tail-insertion' or any other specific ordering. Ask the student to state their own convention and then trace a case where a requeue and an arrival coincide, checking that what they describe matches what their code actually does on every such occurrence. A strong author can name their rule and show it is applied uniformly; a weak answer either can't articulate any rule or describes a rule their code doesn't consistently follow. The ownership signal is a precise, self-consistent account of THEIR ordering, whatever it is.",
+      "bad_versions_to_avoid": "Do NOT treat tail-insertion (or any one convention) as the right answer or imply the student's differing-but-consistent choice is wrong. Do not ask for the RR definition. The test is consistency with their own insertion order, not matching a canonical ordering.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q13",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "the stable pre-sort by arrival time and how original CSV order is preserved on ties",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README: 'sort all processes by their arrival time. If two processes have the same arrival time, preserve their original order from the CSV file (stable sort)' and the general tie-breaking rule.",
+      "examiner_notes": "Goal: how the student guaranteed stability. Ask what in their representation lets equal-arrival processes keep CSV order (e.g. an original-index field, or a stable algorithm choice). The sample has P3 and P4 both arriving at 4; their relative order must follow the CSV. A strong author names the concrete mechanism; a weak one assumes qsort is stable (it is not). Good diagnostic for copied sorting code.",
+      "bad_versions_to_avoid": "Don't accept 'I sorted by arrival' alone; the whole point is the tie-stability mechanism.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q14",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "computation of average waiting time using the README's start-minus-arrival definition with idle excluded",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README Key Definitions: 'Waiting Time = Start Time - Arrival Time' for non-preemptive; 'Idle time ... does not count as waiting time'; sample FCFS reports 2.00.",
+      "examiner_notes": "Goal: confirm waiting time is measured from arrival to start, and that idle gaps don't inflate it. Have them reproduce the reported average on the sample, or explain why an idle gap before a process doesn't add to its wait. A strong author computes from their own per-process start times. Surfaces students who used turnaround or counted idle as waiting.",
+      "bad_versions_to_avoid": "Don't ask for the formula verbatim; make them apply it to a process that sits behind an idle gap.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q15",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "the Round Robin total-turnaround report versus the average-waiting report used by the other three",
+      "dimension": "design_choice",
+      "difficulty": "easy",
+      "anchor": "README: 'For the Round Robin algorithm, display the total turnaround time — the total elapsed time from the start of scheduling until the last process completes' vs average waiting for FCFS/SJF/Priority; sample shows 13 time units.",
+      "examiner_notes": "Goal: confirm the student knows RR reports a different metric and why. Probe what the reported turnaround value represents in the sample run and why RR isn't summarized by average waiting like the others. A strong author ties it to the finish time of the last process from time zero. Quick diagnostic that they implemented two distinct report paths, not one copied summary.",
+      "bad_versions_to_avoid": "Keep it to which metric and what it measures; don't expand into recomputing every RR slice.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q16",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "guaranteeing deterministic output despite signal/alarm coordination between parent and child",
+      "dimension": "error_handling",
+      "difficulty": "hard",
+      "anchor": "README: 'Be mindful of synchronization and race conditions, and address them to ensure deterministic output on every execution' and the hint to consider SIGRTMIN for reliable synchronization.",
+      "examiner_notes": "Goal: ownership of the race the assignment explicitly warns about. Ask where a race could occur between the parent sending a control signal and the child being ready to receive it, and what they did about it. A strong author identifies a concrete window (e.g. signal sent before child installed its handler, or before pause) and their mitigation (blocking then sigsuspend/sigwait, SIGRTMIN, ordered handshake). Weak answers wave at 'I used signals' without naming the window. Strong AI-reliance diagnostic.",
+      "bad_versions_to_avoid": "Don't accept a generic 'races are bad' answer; require a specific window in their parent/child handshake and their concrete fix.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q17",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "Priority selection by lowest priority number among arrived-and-waiting processes",
+      "dimension": "code_flow",
+      "difficulty": "easy",
+      "anchor": "README: 'Priority Scheduling – Among all processes that have arrived and are waiting, the one with the lowest priority number runs next (lower number = higher priority).'",
+      "examiner_notes": "Goal: confirm the lower-number-wins convention and the arrived-only restriction. Have them pick the next process at a clock where an unarrived higher-priority job must be excluded, and justify the direction of the comparison. A strong author states lower value = higher priority and applies it only to already-arrived jobs. Quick check that they didn't invert the comparison.",
+      "bad_versions_to_avoid": "Don't make it a definition; have them apply it at a clock where an unarrived higher-priority job must be excluded.",
+      "conflicts_with": [
+        "q10"
+      ]
+    },
+    {
+      "id": "q18",
+      "files": [
+        "CPU-Scheduler.c",
+        "ex3.c"
+      ],
+      "focus": "how the time-quantum CLI argument flows from ex3.c into Round Robin only",
+      "dimension": "cross_file",
+      "difficulty": "easy",
+      "anchor": "README: 'The time quantum (in seconds) to be used only for the Round Robin scheduling algorithm' and ex3.c passes atoi(argv[3]) into runCPUScheduler.",
+      "examiner_notes": "Goal: confirm the student traces the quantum from argv[3] through runCPUScheduler into the RR routine and not into the other three algorithms. Ask where the quantum is and isn't used. A strong author can say FCFS/SJF/Priority ignore it entirely. Simple cross-file ownership check that the routing and consumption line up.",
+      "bad_versions_to_avoid": "Don't reduce it to 'what does atoi do'; the point is the quantum's scope being RR-only.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q19",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "the CSV parsing step splitting each line into name, description, and three integer fields",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README: 'Each line ... Name,Description,Arrival Time,Burst Time,Priority' with stated max field lengths and 'no more than 256 characters' per row; 'no header row'.",
+      "examiner_notes": "Goal: ownership of parsing decisions within the guaranteed-valid format. Ask how they split fields and why no header skip is needed, and what bound governs their line buffer. A strong author ties their buffer size to the 256-char guarantee and explains their field separation handling commas only as delimiters between the five fields. Diagnostic for buffer-size reasoning and reading the format spec.",
+      "bad_versions_to_avoid": "Don't probe malformed-input robustness — the README guarantees valid format, so questioning unhandled malformations would be unfair.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q20",
+      "files": [
+        "CPU-Scheduler.c"
+      ],
+      "focus": "re-running all four algorithms on the same unmodified process data in sequence",
+      "dimension": "cross_file",
+      "difficulty": "medium",
+      "anchor": "README: 'Runs all four algorithms sequentially on the same process data, in this order: FCFS -> SJF -> Priority -> Round Robin.'",
+      "examiner_notes": "Goal: confirm each algorithm starts from a clean copy of the process state (remaining burst, started/finished flags reset). Ask how they prevent the first algorithm's mutations (e.g. decremented remaining time in RR planning, or 'completed' marks) from corrupting the next. A strong author explains resetting or copying per-run state. Surfaces students whose second algorithm would see leftover state from the first.",
+      "bad_versions_to_avoid": "Don't ask them to list the four algorithms; focus on state isolation between consecutive runs.",
+      "conflicts_with": []
+    }
+  ],
+  "final_stats": {
+    "total": 20,
+    "by_file": {
+      "ex3.c": 2,
+      "Focus-Mode.c": 6,
+      "CPU-Scheduler.c": 13
+    },
+    "by_dimension": {
+      "design_choice": 6,
+      "api_depth": 3,
+      "code_flow": 4,
+      "edge_case": 3,
+      "cross_file": 3,
+      "error_handling": 1
+    },
+    "by_difficulty": {
+      "easy": 4,
+      "medium": 10,
+      "hard": 6
+    }
+  },
+  "ta_report": {
+    "removed": [
+      {
+        "raw_id": "q1",
+        "reason": "Removed at instructor request. Targeted the skeleton mode-guard bug; instructor opted not to assess it."
+      },
+      {
+        "raw_id": "q7",
+        "reason": "Removed at instructor request. Easy edge_case on invalid (non-1/2/3/q) input consuming an iteration without raising a signal."
+      }
+    ],
+    "confirmed_conflicts": [
+      {
+        "pair": [
+          "q03",
+          "q06"
+        ],
+        "kept_both_because": "Both probe pending-signal mechanics on Focus-Mode and overlap (coalescing of standard signals vs. enforcing listing order), but differ in difficulty (medium vs. hard) and angle, so both are kept and tagged to prevent the examiner selecting both for one student."
+      },
+      {
+        "pair": [
+          "q10",
+          "q17"
+        ],
+        "kept_both_because": "Same selection-loop shape (pick from arrived-and-waiting by a key, exclude unarrived) for SJF vs. Priority; a strong answer to one covers much of the other. Kept both at different difficulties (medium vs. easy) since each is the sole question covering its algorithm's selection, and tagged so they aren't paired."
+      }
+    ],
+    "coverage_gaps": [
+      "error_handling has a single question (final q18, the determinism/race question on CPU-Scheduler.c). This is inherent to the assignment: the only explicit failure-detection requirement is the race/synchronization warning; the spec guarantees valid CSV input and waives numeric-argument validation, so there is little other error-handling surface to anchor a second question to. Kept the one strong question rather than manufacture a weak second.",
+      "ex3.c is covered by two questions (q01, q02) plus one cross-file (q20). Both standalone ex3 questions are easy; the file is a thin routing layer (much of it provided), so it legitimately supports no hard ownership question."
+    ],
+    "needs_ta_attention": [
+      {
+        "id": "q12",
+        "note": "q14 (RR requeue-vs-arrival ordering) must be graded for INTERNAL CONSISTENCY with the student's own chosen queue convention, per course policy that any consistent insertion logic is acceptable. The note already says this; ensure the examiner does not push toward tail-insertion or any single 'correct' ordering."
+      },
+      {
+        "id": "q19",
+        "note": "q21 (CSV parsing) — spec guarantees valid, well-formed input, so do not let this drift into probing robustness against malformed CSV. Keep it on buffer-sizing and field-splitting decisions only."
+      }
+    ]
+  }
+}

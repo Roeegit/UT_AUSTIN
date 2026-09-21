@@ -1,0 +1,411 @@
+{
+  "analysis": {
+    "required_files": [
+      "tournament.c",
+      "gladiator.c",
+      "file_processor.c",
+      "backup.c"
+    ],
+    "file_functions": {
+      "tournament.c": [
+        "main() — defines gladiator names/files arrays, forks four child processes, execs gladiator binary, waits for all children, determines and prints winner based on last process to exit"
+      ],
+      "gladiator.c": [
+        "main() — receives gladiator file as argv argument, reads stats from G{i}.txt using fscanf, runs fight loop deducting health, logs to G{i}_log.txt, exits with status 0 when health <= 0",
+        "get_opponent_attack() — reads opponent's attack value from their file (G{i}.txt)"
+      ],
+      "file_processor.c": [
+        "main() — takes data file and requests file as command-line arguments, opens both files, processes R/W/Q commands in a loop",
+        "R command handling — uses lseek and read to extract bytes from start_offset to end_offset inclusive, writes result to read_results.txt",
+        "W command handling — reads text at given offset, shifts existing data forward (insert without overwrite) using lseek/read/write",
+        "Q command handling — stops processing and exits",
+        "Edge case handling — boundary checks for reading/writing beyond file size"
+      ],
+      "backup.c": [
+        "main() — takes source_directory and backup_directory as arguments, validates source exists and backup doesn't exist, initiates recursive copy",
+        "copy_directory() — recursively scans directory with opendir/readdir, creates corresponding directory in backup, dispatches to create_hard_link or copy_symlink based on file type",
+        "create_hard_link() — creates a hard link from src to dst using link()",
+        "copy_symlink() — reads symlink target with readlink, recreates symlink in backup with symlink()"
+      ]
+    },
+    "os_concepts_used": [
+      {"concept": "fork()", "anchor": "README: 'Fork four child processes (one for each gladiator).'"},
+      {"concept": "exec()", "anchor": "README: 'Use exec() to launch each gladiator as a separate process with the gladiator executable.' and 'You must name the gladiator executable gladiator and call it via exec.'"},
+      {"concept": "wait()/waitpid()", "anchor": "README: 'Wait for all child processes to complete using wait() or waitpid().' and 'Determine the winner based on the gladiator who remains alive last, i.e., the one whose process terminates last.'"},
+      {"concept": "exit status", "anchor": "README: 'After a battle (when health is not positive), the process will exit with status 0.'"},
+      {"concept": "file I/O (fopen/fscanf/fprintf)", "anchor": "README: 'Read their stats from their respective file' and 'I recommend using fscanf for parsing the G_{i}.txt files' and 'Log their actions and health status into a log file'"},
+      {"concept": "open()/read()/write()/close()", "anchor": "README (file_processor): 'Ensures data persistence with proper file operations (lseek, read, write).' and 'Open read_results.txt with O_TRUNC and O_CREAT.'"},
+      {"concept": "lseek()", "anchor": "README (file_processor): 'Ensures data persistence with proper file operations (lseek, read, write).'"},
+      {"concept": "opendir()/readdir()", "anchor": "README (backup): 'The tool scans the given directory' and 'Recursively copies all files and directories.'"},
+      {"concept": "mkdir()", "anchor": "README (backup): 'A directory → Creates the same directory structure in the backup.'"},
+      {"concept": "link()", "anchor": "README (backup): 'A regular file → Creates a hard link in the backup location.'"},
+      {"concept": "symlink()/readlink()", "anchor": "README (backup): 'A symbolic link → Replicates the symlink (not the actual file).' and 'Preserves symbolic links (does not copy the actual file but recreates the symlink).'"},
+      {"concept": "lstat()/stat()", "anchor": "README (backup): Need to distinguish regular files, symlinks, and directories when scanning; 'If an item is: A regular file / A symbolic link / A directory'"},
+      {"concept": "perror()", "anchor": "README (file_processor): 'perror(\"data.txt\")' and README (backup): 'perror(\"src dir\")' and 'perror(\"backup dir\")'"}
+    ],
+    "file_interactions": "tournament.c forks four child processes and uses exec() to run the gladiator binary, passing the gladiator file name (e.g., 'G1') as an argument. Each gladiator.c process reads its own stats file (G{i}.txt), reads opponent stats files to get their attack values, logs to G{i}_log.txt, and exits with status 0 when defeated. tournament.c uses wait()/waitpid() to detect which gladiator process exits last and declares that gladiator the winner. file_processor.c and backup.c are independent programs with no cross-file interaction.",
+    "key_decisions": [
+      "How to determine the winner in tournament.c — tracking which child exits last via sequential waitpid() calls and mapping the last PID to a gladiator name",
+      "How get_opponent_attack() works in gladiator.c — re-reading opponent G{i}.txt files to extract their attack value",
+      "How to implement the insert-without-overwrite (shift-forward) logic in file_processor.c for W commands using lseek/read/write",
+      "How to compute inclusive range for R commands in file_processor.c (off-by-one: end_offset - start_offset + 1)",
+      "How to distinguish file types in backup.c (using lstat vs stat to correctly identify symlinks) and how to reconstruct relative symlink targets in the backup directory"
+    ]
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "file": "tournament.c",
+      "focus": "fork() call to create four gladiator child processes",
+      "dimension": "error_handling",
+      "difficulty": "medium",
+      "anchor": "README: 'Fork four child processes (one for each gladiator).'",
+      "examiner_notes": "Ask the student to show where they fork the four children. Probe whether they check fork()'s return value for failure. A strong answer explains what would happen to the tournament state if fork fails partway through — some gladiators spawned, some not. Listen for whether they describe this as something they actually encountered or tested.",
+      "bad_versions_to_avoid": "Do NOT ask 'what does fork() do in general.' Ground it in their tournament.c code — 'show me your fork loop, what if fork fails partway through?'",
+      "conflicts_with": []
+    },
+    {
+      "id": "q02",
+      "file": "tournament.c",
+      "focus": "exec() variant choice, argument passing, and failure handling in child process",
+      "dimension": "error_handling",
+      "difficulty": "hard",
+      "anchor": "README: 'Use exec() to launch each gladiator as a separate process with the gladiator executable.' and 'You must name the gladiator executable gladiator and call it via exec.'",
+      "examiner_notes": "This is a combined probe: which exec variant they chose and why, what arguments they pass, and what happens if exec fails. The key ownership signal is whether they understand that code after exec only runs on failure — a student who wrote this themselves will describe the 'child falls through' danger. Probe: what would happen to the tournament if exec fails and they DON'T exit the child?",
+      "bad_versions_to_avoid": "Do NOT ask them to list all exec variants or compare them in the abstract. Focus on their specific choice in context and the failure path.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q03",
+      "file": "tournament.c",
+      "focus": "Winner determination — tracking which child exits last and mapping PID to gladiator name",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "README: 'Determine the winner based on the gladiator who remains alive last, i.e., the one whose process terminates last.' and 'The tournament program will print the winner's name in the following format: The gods have spoken, the winner of the tournament is [gladiator_name]!'",
+      "examiner_notes": "This is the core design challenge. Ask how they track which gladiator exits last AND how they translate that back to a name. A strong answer describes their data structure for PID-to-name mapping and explains the wait loop logic as one coherent design. Probe: what alternative designs did they consider? What if they didn't store the PIDs — could they still determine the winner?",
+      "bad_versions_to_avoid": "Do NOT split this into 'how do you wait' and 'how do you map PIDs' as separate questions — they are one design decision. Do NOT ask generically about wait().",
+      "conflicts_with": ["q04"]
+    },
+    {
+      "id": "q04",
+      "file": "tournament.c",
+      "focus": "waitpid()/wait() loop structure to collect all four children",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README: 'Wait for all child processes to complete using wait() or waitpid().' and 'Make sure the tournament program waits for all processes to complete before declaring the winner.'",
+      "examiner_notes": "Ask the student to trace through their wait loop. Probe: how many times does wait/waitpid get called and why? What happens if they call it only once? A strong student can trace the loop iterations and explain the return value at each step. This focuses on the mechanical loop structure, distinct from q03's design-level question.",
+      "bad_versions_to_avoid": "Do NOT ask about WNOHANG or non-blocking waits — the README doesn't require them. Keep it focused on their actual wait loop structure.",
+      "conflicts_with": ["q03"]
+    },
+    {
+      "id": "q05",
+      "file": "tournament.c",
+      "focus": "Passing gladiator file name via exec arguments — both tournament.c and gladiator.c sides",
+      "dimension": "cross_file",
+      "difficulty": "easy",
+      "anchor": "README: 'Tip: Pass the matching gladiator file name as an argument :)' and exec is used to run gladiator.c",
+      "examiner_notes": "Ask the student to show both sides: how tournament.c constructs the argument list for exec, and how gladiator.c receives it. Listen for whether they can describe the argv layout without hesitation — ownership signal is fluency across both files. Probe: which argv index carries the file name and why?",
+      "bad_versions_to_avoid": "Do NOT ask about IPC mechanisms in general. This is specifically about argv passing between tournament.c and gladiator.c.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q06",
+      "file": "gladiator.c",
+      "focus": "Parsing gladiator stats from G{i}.txt using fscanf",
+      "dimension": "code_flow",
+      "difficulty": "easy",
+      "anchor": "README: 'Read their stats from their respective file' and 'I recommend using fscanf for parsing the G_{i}.txt files'",
+      "examiner_notes": "Ask the student to walk through how they parse the comma-separated stats. Probe the format string logic — how does it map to the file layout? A strong answer shows fluency with their own format string. A weak answer hesitates or can't describe what each specifier matches.",
+      "bad_versions_to_avoid": "Do NOT ask about fscanf in the abstract. Ask them to describe their actual parsing approach and how it handles the comma-separated format.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q07",
+      "file": "gladiator.c",
+      "focus": "get_opponent_attack() — reading opponent's attack from their file",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README: 'Deduct its self health based on the opponent's attack power.' and example code shows 'int opponent_attack = get_opponent_attack(opponents[i]);'",
+      "examiner_notes": "Ask how their function retrieves the opponent's attack value. There are genuinely different approaches — re-opening each time vs caching, seeking to the right field, parsing strategy. Probe what alternatives they considered and why they chose their approach. This is a strong ownership discriminator because there's no single obvious solution.",
+      "bad_versions_to_avoid": "Do NOT assume a specific implementation. Ask the student to explain THEIR approach first, then probe its correctness and trade-offs.",
+      "conflicts_with": ["q28"]
+    },
+    {
+      "id": "q08",
+      "file": "gladiator.c",
+      "focus": "Fight loop structure — cycling through opponents until health <= 0",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README: 'Keep fighting (in the same order) until health is not positive.' and 'Fight the three opponents in the order specified in the file.'",
+      "examiner_notes": "Ask the student to trace through their fight loop using values from the README example. Probe: how does the loop restart from opponent 1 after fighting opponent 3? Listen for whether they describe the nested loop structure (outer while for health, inner for for opponents) fluently. A student who wrote this will describe the cycling naturally.",
+      "bad_versions_to_avoid": "Do NOT provide specific numbers — let them pick values from the README or their own tests. Focus on the loop structure, not arithmetic.",
+      "conflicts_with": ["q11"]
+    },
+    {
+      "id": "q09",
+      "file": "gladiator.c",
+      "focus": "Log file creation — opening, naming, and writing the initial PID line",
+      "dimension": "api_depth",
+      "difficulty": "easy",
+      "anchor": "README: 'Log their actions and health status into a log file (G1_log.txt, G2_log.txt, etc.)' and log example: 'Gladiator process started. 1234:'",
+      "examiner_notes": "Ask how they open the log file — probe the file mode/flags and how they construct the filename from the gladiator argument. Then ask about the first line: where does the PID come from? A strong answer shows clear naming logic and understands that getpid() returns the child's PID post-fork/exec.",
+      "bad_versions_to_avoid": "Do NOT ask them to memorize exact log format strings. Focus on the file-opening mechanics and the PID retrieval logic.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q10",
+      "file": "gladiator.c",
+      "focus": "Exit with status 0 after defeat and its cross-file implication for winner detection",
+      "dimension": "cross_file",
+      "difficulty": "easy",
+      "anchor": "README: 'After a battle (when health is not positive), the process will exit with status 0.'",
+      "examiner_notes": "Ask what happens when health drops to zero or below. Then probe the cross-file implication: since ALL gladiators exit with 0, how does tournament.c determine who won? A strong answer connects both sides — exit status isn't used for winner detection, only exit ordering matters. A weak answer assumes different exit codes mean winner/loser.",
+      "bad_versions_to_avoid": "Do NOT confuse this with using different exit codes for winner determination — the README specifies all exit with 0. The question is about understanding this constraint across both files.",
+      "conflicts_with": ["q03"]
+    },
+    {
+      "id": "q11",
+      "file": "gladiator.c",
+      "focus": "Handling the break condition when health drops mid-opponent-cycle",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README log example shows: after taking damage the gladiator falls, and the code hint shows 'if (health > 0) ... else { ... break; }'",
+      "examiner_notes": "Ask what happens if health drops below zero in the middle of the opponent cycle (not at the end). The student should show they break out of the inner loop correctly. Probe: what if they forget the break — what would the log file show? A student who debugged this will describe the symptom naturally.",
+      "bad_versions_to_avoid": "Do NOT invent arbitrary numbers. Let the student trace their own logic with the README example or their own test case.",
+      "conflicts_with": ["q08"]
+    },
+    {
+      "id": "q12",
+      "file": "file_processor.c",
+      "focus": "Opening data file and requests file — error handling for missing files",
+      "dimension": "error_handling",
+      "difficulty": "easy",
+      "anchor": "README: 'data.txt and requests.txt must exist, otherwise perror(\"data.txt\") or perror(\"requests.txt\")'",
+      "examiner_notes": "Ask the student how they handle missing files. Probe: do they check the return value of open(), do they exit or continue, and do they produce the correct perror string for each file? A strong answer shows they handle both files independently with the right error messages.",
+      "bad_versions_to_avoid": "Do NOT ask about perror in the abstract. Ask them to show their specific validation code path for both files.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q13",
+      "file": "file_processor.c",
+      "focus": "R command — computing inclusive byte range and positioning with lseek before read",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README: 'R (Read): Reads from data.txt between start_offset and end_offset, inclusive.' and 'Ensures data persistence with proper file operations (lseek, read, write).'",
+      "examiner_notes": "Ask the student to pick any R command from the README examples and trace their code step by step — how they compute the byte count, which lseek whence they use, and how they issue the read. The off-by-one in inclusive range is the most common bug here. Listen for whether they catch it naturally or stumble — that's the ownership signal.",
+      "bad_versions_to_avoid": "Do NOT provide the worked-out arithmetic or tell them which values to trace. Let the student drive the trace to demonstrate ownership.",
+      "conflicts_with": ["q15"]
+    },
+    {
+      "id": "q14",
+      "file": "file_processor.c",
+      "focus": "W command — strategy and execution of shifting existing data forward to insert without overwriting",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "README: 'Writes new data at a given offset while preserving the rest of the file.' and example shows insertion shifts data right",
+      "examiner_notes": "This is the hardest part of file_processor.c. Ask the student to explain their shift strategy AND trace through it with a README example. There are multiple valid approaches (buffer-all-then-write, chunk-based, read-from-end). Probe: what trade-offs does their approach have? What if the file is very large? A student who actually implemented this will describe the sequence of lseek/read/write calls from memory.",
+      "bad_versions_to_avoid": "Do NOT assume a specific implementation. Let them explain their approach first. Do NOT hand them the final file content — make them derive it.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q15",
+      "file": "file_processor.c",
+      "focus": "R command boundary check — reading beyond file size",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README: 'Reading beyond file size → Prevent it with boundary checks, and continue to the next line (dont exit).'",
+      "examiner_notes": "Ask how they determine the current file size and check whether an R command's range exceeds it. Probe: which method do they use to get file size, and what do they do when the range is out of bounds — skip entirely or read what's available? The README says 'continue to the next line', meaning skip. A strong answer shows they check BEFORE attempting the read.",
+      "bad_versions_to_avoid": "Do NOT ask about stat in general. Focus on their specific boundary check implementation for R commands.",
+      "conflicts_with": ["q13"]
+    },
+    {
+      "id": "q16",
+      "file": "file_processor.c",
+      "focus": "W command boundary validation — offset at end of file vs beyond",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "README: 'Writing beyond file size → if I give you the offset of the end of the file it's ok (but after that it's not). so is offset 0 (but before that it's not).'",
+      "examiner_notes": "Probe the student's understanding of the valid boundary for W offsets. The tricky part is the distinction between 'exactly at end' (valid, acts as append) and 'beyond end' (invalid). Ask them how they compute file size and where the boundary line is in their code. Listen for whether they describe testing this edge case themselves.",
+      "bad_versions_to_avoid": "Do NOT spell out the boundary logic for them. Do NOT confuse this with the R boundary check — this question is specifically about W command offset validation.",
+      "conflicts_with": ["q15"]
+    },
+    {
+      "id": "q17",
+      "file": "file_processor.c",
+      "focus": "Opening read_results.txt with correct flags for output",
+      "dimension": "api_depth",
+      "difficulty": "easy",
+      "anchor": "README: 'Open read_results.txt with O_TRUNC and O_CREAT.'",
+      "examiner_notes": "Ask the student how they open the results file. Probe whether they understand why each flag they pass is needed in this context and what would go wrong with different flags. Also ask about the permission mode — do they pass a third argument? A strong answer explains the reasoning behind each flag choice, not just which flags they used.",
+      "bad_versions_to_avoid": "Do NOT ask them to list all open flags. Do NOT give away which flags are 'correct' — let them explain their own choices and reasoning.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q18",
+      "file": "file_processor.c",
+      "focus": "Writing R command results to read_results.txt with proper formatting",
+      "dimension": "code_flow",
+      "difficulty": "easy",
+      "anchor": "README: 'Contains the output from the read commands, with new line between every read.' and example shows separate read results on separate lines",
+      "examiner_notes": "Ask how they write read results to the output file. Probe: how do they append the newline — is it part of the write buffer or a separate write call? If using low-level write(), how do they construct the output? A strong answer shows a clear understanding of their own I/O approach.",
+      "bad_versions_to_avoid": "Do NOT focus on the content of the reads — focus on the mechanism of writing results with proper formatting.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q19",
+      "file": "backup.c",
+      "focus": "Using lstat() vs stat() to correctly identify symlinks during directory scan",
+      "dimension": "api_depth",
+      "difficulty": "hard",
+      "anchor": "README: 'If an item is: A regular file → hard link, A symbolic link → Replicates the symlink, A directory → Creates the same directory structure'",
+      "examiner_notes": "Ask how they distinguish between regular files, symlinks, and directories. The ownership signal here is whether they can explain WHY they need a specific stat variant without prompting — a student who hit the 'symlinks show up as regular files' bug during development will describe it naturally. Probe: what would go wrong with the other variant?",
+      "bad_versions_to_avoid": "Do NOT ask 'what's the difference between stat and lstat' in the abstract. Ask them to show where in their code they determine file type and probe whether symlinks would be handled correctly.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q20",
+      "file": "backup.c",
+      "focus": "Creating hard links with link() for regular files",
+      "dimension": "api_depth",
+      "difficulty": "easy",
+      "anchor": "README: 'A regular file → Creates a hard link in the backup location.' and 'Creates hard links instead of duplicating file content (for regular files).'",
+      "examiner_notes": "Ask the student to explain their hard link creation. Probe whether they understand what link() does at the filesystem level and why the README chose hard links over copying. A strong answer explains the inode-level behavior. A weak answer treats link() as just 'another copy function.'",
+      "bad_versions_to_avoid": "Do NOT ask them to explain all types of links in Unix. Focus on their specific use of link() and why the assignment chose this approach.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q21",
+      "file": "backup.c",
+      "focus": "Recreating symlinks with readlink() and symlink() — including target path handling",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README: 'A symbolic link → Replicates the symlink (not the actual file).' and 'The copied symbolic links are not pointing to the original file but to the copied file (see the example).'",
+      "examiner_notes": "Ask the student to trace through their symlink copy function. Probe for subtle pitfalls in their readlink usage that a student who actually wrote this code would know about. Also probe the README's requirement about where the copied symlink should point — this is a non-obvious constraint. Listen for whether they describe debugging this.",
+      "bad_versions_to_avoid": "Do NOT ask about symlinks in the abstract. Focus on their specific implementation and the target-path requirement.",
+      "conflicts_with": ["q19"]
+    },
+    {
+      "id": "q22",
+      "file": "backup.c",
+      "focus": "Recursive directory traversal with opendir/readdir — skipping dot entries",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README: 'Recursively copies all files and directories.' and 'The tool scans the given directory.'",
+      "examiner_notes": "Ask the student to explain their recursive traversal pattern. Probe: how do they skip special entries, how do they construct full paths for each entry, and what would happen if they forgot to skip them? A student who wrote this will describe the infinite-recursion bug from experience. Listen for that signal.",
+      "bad_versions_to_avoid": "Do NOT ask about readdir in the abstract. Focus on their specific recursive pattern and path construction logic.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q23",
+      "file": "backup.c",
+      "focus": "Validation that source directory exists and backup directory doesn't exist",
+      "dimension": "error_handling",
+      "difficulty": "easy",
+      "anchor": "README: 'The source directory must exist, otherwise perror(\"src dir\").' and 'The backup directory must not already exist, otherwise perror(\"backup dir\").'",
+      "examiner_notes": "Ask how they validate the two arguments before starting. Probe: how do they check non-existence — what system call do they use and how do they interpret its return value? A strong answer shows they handle both the 'must exist' and 'must not exist' checks with different logic. Listen for confidence navigating their own validation code.",
+      "bad_versions_to_avoid": "Do NOT ask about perror in general. Focus on their specific validation logic for both directories.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q24",
+      "file": "backup.c",
+      "focus": "Creating directory structure in backup with mkdir and preserving permissions",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README: 'A directory → Creates the same directory structure in the backup.' and 'Maintains file permissions and attributes.'",
+      "examiner_notes": "Ask how they create directories in the backup. Probe whether they preserve the source directory's permissions and how they extract those permissions. A strong answer shows they pull mode from the source's stat result. A weak answer hardcodes permissions. This is a good ownership test because hardcoding 'works' for basic tests but violates the README requirement.",
+      "bad_versions_to_avoid": "Do NOT ask about mkdir in the abstract. Focus on whether they preserve the original directory's permissions.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q25",
+      "file": "gladiator.c",
+      "focus": "Edge case — gladiator stats file has unexpected or minimal content",
+      "dimension": "edge_case",
+      "difficulty": "easy",
+      "anchor": "README: 'Read their stats from their respective file' and file format shows Health, Attack, Opponent1, Opponent2, Opponent3",
+      "examiner_notes": "Ask what their code does if the stats file is malformed or has fewer fields than expected. Probe: does fscanf return a value they check? What happens if Health is 0 or negative from the start? A strong answer shows they considered these cases even if the README doesn't mandate handling them — it signals someone who actually tested their code.",
+      "bad_versions_to_avoid": "Do NOT invent exotic edge cases not related to the assignment. Keep it grounded in realistic file format issues the student might have encountered during testing.",
+      "conflicts_with": ["q06"]
+    },
+    {
+      "id": "q26",
+      "file": "file_processor.c",
+      "focus": "Edge case — R or W commands on an empty data.txt",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "README: boundary check rules for R and W commands, and 'Reading beyond file size → Prevent it with boundary checks'",
+      "examiner_notes": "Ask what happens if data.txt is empty (0 bytes) and the first command is an R or W. Probe: does their boundary check handle file size 0 correctly? For W, is offset 0 valid on an empty file (the README says offset 0 is ok)? This tests whether they truly understood the boundary rules or just handled the common case. A strong answer reasons through the zero-size case confidently.",
+      "bad_versions_to_avoid": "Do NOT just ask 'what if the file is empty' generically. Tie it to specific R/W boundary logic and the README's rules about valid offsets.",
+      "conflicts_with": ["q15", "q16"]
+    },
+    {
+      "id": "q27",
+      "file": "file_processor.c",
+      "focus": "Cross-component: how a W command changes the file state that subsequent R commands operate on",
+      "dimension": "cross_file",
+      "difficulty": "medium",
+      "anchor": "README examples show sequential W and R commands operating on the same data.txt, with W modifying offsets for subsequent operations",
+      "examiner_notes": "Ask the student to trace what happens when a W command inserts data and then a following R command reads from the same file. Probe: after the insertion shifts bytes forward, do subsequent R offsets still refer to the right data? Does their code re-check file size after each W? This tests understanding of how their operations compose, not just each operation in isolation.",
+      "bad_versions_to_avoid": "Do NOT ask about R and W separately — the question is specifically about their interaction. Let the student use the README's sequential example to trace through.",
+      "conflicts_with": ["q13", "q14"]
+    },
+    {
+      "id": "q28",
+      "file": "gladiator.c",
+      "focus": "File descriptor management in get_opponent_attack() — opening, reading, and closing opponent files",
+      "dimension": "api_depth",
+      "difficulty": "hard",
+      "anchor": "README: 'Deduct its self health based on the opponent's attack power.' and the fight loop calls get_opponent_attack repeatedly across multiple rounds",
+      "examiner_notes": "Ask about how they manage file descriptors for opponent files across repeated calls in the fight loop. Probe: do they open and close each time, or open once and seek? If they open each time, do they close properly — what happens after many rounds if they leak FDs? If they cache, how do they seek back? A student who hit resource issues during testing will describe the problem naturally.",
+      "bad_versions_to_avoid": "Do NOT ask about file descriptors in the abstract. Focus on the specific pattern of repeated access in the fight loop and its resource implications.",
+      "conflicts_with": ["q07"]
+    },
+    {
+      "id": "q29",
+      "file": "backup.c",
+      "focus": "Edge case — symlink whose target points outside the source directory",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "README: 'A symbolic link → Replicates the symlink (not the actual file).' and 'Preserves symbolic links (does not copy the actual file but recreates the symlink).'",
+      "examiner_notes": "Ask what happens if a symlink in the source directory points to a file outside the source tree (e.g., /usr/bin/something). Probe: does their code blindly recreate this target path, or do they handle it? The README says to replicate the symlink, so preserving the original target is technically correct — but probe whether the student understands what the symlink in the backup will point to. This tests deep understanding of symlink semantics.",
+      "bad_versions_to_avoid": "Do NOT ask about symlink security in general. Keep it grounded in what their backup tool actually does with an external-pointing symlink.",
+      "conflicts_with": ["q21"]
+    },
+    {
+      "id": "q30",
+      "file": "tournament.c",
+      "focus": "Race condition — what if two gladiators have very similar health and exit nearly simultaneously",
+      "dimension": "cross_file",
+      "difficulty": "hard",
+      "anchor": "README: 'Determine the winner based on the gladiator who remains alive last, i.e., the one whose process terminates last.' and the fight mechanics can produce very close finish times",
+      "examiner_notes": "Ask the student what happens if two gladiators have nearly identical health and exit within milliseconds of each other. Probe: is their wait loop deterministic in this case? Does the OS guarantee an ordering? A strong answer acknowledges that wait() returns children in completion order and that the 'last' one is well-defined from the parent's perspective, even if the actual wall-clock difference is tiny. Probe: could scheduler timing affect who 'wins'?",
+      "bad_versions_to_avoid": "Do NOT turn this into a general concurrency theory question. Keep it focused on their specific tournament design and whether they considered close-finish scenarios.",
+      "conflicts_with": ["q03", "q04"]
+    }
+  ],
+  "generation_stats": {
+    "total": 30,
+    "by_file": {
+      "tournament.c": 7,
+      "gladiator.c": 7,
+      "file_processor.c": 10,
+      "backup.c": 6
+    },
+    "by_dimension": {
+      "design_choice": 5,
+      "edge_case": 6,
+      "error_handling": 4,
+      "api_depth": 5,
+      "code_flow": 6,
+      "cross_file": 4
+    },
+    "by_difficulty": {
+      "easy": 9,
+      "medium": 12,
+      "hard": 9
+    },
+    "stopped_early": false,
+    "stop_reason": null
+  }
+}

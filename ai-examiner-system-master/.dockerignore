@@ -1,0 +1,28 @@
+# Docker build context for the BACKEND image (context is now the repo root so that
+# courses/<id>/rendered/ can be copied in — see backend/Dockerfile and cloudbuild.yaml).
+# The frontend builds from its own directory and is unaffected by this file.
+
+.git/
+**/__pycache__/
+**/*.pyc
+**/*.db
+
+# secrets — never into an image
+backend/.env
+backend/keys/
+**/*.pem
+
+# not needed at runtime
+frontend/
+docs/
+archive/
+private-data/
+scratchpad/
+question_pool_creation/
+backend/hf_cache/
+*.ps1
+
+# course material: the rendered prompts are needed, the sample PDFs are not
+# (11 MB of past exam scans, test data only)
+courses/**/past_examples/
+courses/_poc/

@@ -1,0 +1,635 @@
+{
+  "analysis": {
+    "required_files": {
+      "implement": [
+        "hook_runner.sh",
+        ".claude/hooks/pre_command_firewall.sh",
+        ".claude/hooks/pre_rate_limiter.sh",
+        ".claude/hooks/pre_commit_validator.sh",
+        ".claude/hooks/post_auto_backup.sh",
+        ".claude/hooks/post_syntax_checker.sh",
+        ".claude/hooks/post_session_summary.sh"
+      ],
+      "provided": [
+        ".claude/hooks/pre_secrets_guard.sh",
+        "hooks_config.txt",
+        "test.sh",
+        ".env",
+        ".claude/settings.json",
+        ".claude/hooks/config/dangerous_patterns.txt",
+        ".claude/hooks/config/hooks.conf",
+        ".claude/hooks/config/commit_prefixes.txt",
+        ".claude/hooks/config/secret_files.txt",
+        ".claude/hooks/data/session_test-session-1.log"
+      ]
+    },
+    "file_functions": {
+      "hook_runner.sh": [
+        "argument handling — read event_type from $1 and tool_name from $2, print usage and exit non-zero if either is missing (provided in the starter template)",
+        "stdin buffering — capture stdin into a temp file with a trap EXIT cleanup so each hook can re-read the same JSON (provided in the starter template)",
+        "config loop — read hooks_config.txt line by line, skip '#' and blank lines, split each line on ':' into CONF_EVENT / CONF_MATCHER / CONF_SCRIPT where CONF_SCRIPT is everything after the second ':' (student-implemented)",
+        "match filter — skip a line unless CONF_EVENT equals EVENT_TYPE and CONF_MATCHER equals TOOL_NAME or is '*'; increment MATCHED on a match (student-implemented)",
+        "script path resolution — if CONF_SCRIPT begins with './', prepend RUNNER_DIR (student-implemented)",
+        "hook invocation — run the matched script with the saved stdin fed in, capture stderr separately, and record the exit code (student-implemented)",
+        "exit-code dispatch — 0 prints Passed and increments PASSED; 2 prints BLOCKED, emits captured stderr, increments BLOCKED, sets FINAL_EXIT=2, prints the chain-stopped message and breaks the loop; any other code prints a Warning and increments WARNINGS (student-implemented)",
+        "summary + final status — the summary block and 'exit $FINAL_EXIT' are provided; the student must drive the counters and FINAL_EXIT that feed them"
+      ],
+      ".claude/hooks/pre_command_firewall.sh": [
+        "HOOK_DIR path resolution and config path to dangerous_patterns.txt",
+        "stdin read and extraction of tool_name and command from the JSON",
+        "non-Bash short-circuit — exit 0 when tool_name is not Bash",
+        "pattern loop — read each non-comment, non-empty line of dangerous_patterns.txt and test the command with grep -qE",
+        "block path — on first match print a reason naming the matched pattern to stderr and exit 2; otherwise exit 0"
+      ],
+      ".claude/hooks/pre_rate_limiter.sh": [
+        "HOOK_DIR resolution; extract session_id (default 'default') and command",
+        "config read — MAX_COMMANDS and WARNING_THRESHOLD from hooks.conf",
+        "state lookup — find this session's line in data/.command_count or start from zero",
+        "increment — add 1 to the total and to the per-type count keyed by the command's first word, inside the 'type1:N,type2:N,...' field",
+        "state rewrite — write the updated line back, replacing only this session's previous line",
+        "reset mechanism — if data/.reset_commands exists, drop this session's line, delete the reset file, then proceed so the count restarts at 1",
+        "enforcement — total > MAX_COMMANDS exits 2 with count/breakdown on stderr; total > WARNING_THRESHOLD warns on stderr and exits 0; otherwise exits 0 silently"
+      ],
+      ".claude/hooks/pre_commit_validator.sh": [
+        "extract command; exit 0 if it does not contain 'git commit'; exit 0 if there is no -m flag",
+        "message extraction — pull the message out of -m/-am/-a -m forms (single- or double-quoted)",
+        "prefix regex build — load the allowed prefixes from commit_prefixes.txt and assemble an anchored alternation regex",
+        "Check 1 (prefix) — if no valid prefix, inspect staged changes via git diff --cached --stat and --name-status, pick a suggested prefix by heuristic, exit 2 with the suggestion and valid-prefix list",
+        "Check 2 (length) — message length must be within 10-72, else exit 2",
+        "Check 3 (trailing period) — message must not end with '.', else exit 2",
+        "exit 0 when all checks pass"
+      ],
+      ".claude/hooks/post_auto_backup.sh": [
+        "extract file_path and session_id (default 'default'); exit 0 if file_path empty or file missing",
+        "timestamp generation with date +%Y-%m-%d_%H%M%S",
+        "backup creation — ensure data/.backups/ exists and copy the file to <basename>.<timestamp>",
+        "size measurement with wc -c and an appended BACKUP line to session_<id>.log",
+        "rotation — read MAX_BACKUPS from hooks.conf (default 5), count this filename's backups, and delete the oldest beyond the limit using newest-first ordering",
+        "always exit 0"
+      ],
+      ".claude/hooks/post_syntax_checker.sh": [
+        "extract file_path and session_id; exit 0 if file_path empty or file missing",
+        "extension extraction via ${FILE_PATH##*.}",
+        "case dispatch — sh/bash to bash -n, py to python3 -m py_compile, c/h to gcc -fsyntax-only, anything else prints 'No syntax checker' and exits 0",
+        "failure branch — capture checker output, print 'SYNTAX ERROR ...' to stderr, log SYNTAX_ERROR line, exit 1",
+        "success branch — print 'Syntax OK: <file>' to stdout, log SYNTAX_OK line, exit 0"
+      ],
+      ".claude/hooks/post_session_summary.sh": [
+        "loop guard — extract stop_hook_active and exit 0 immediately if it is true",
+        "session_id extraction and log path data/session_<session_id>.log",
+        "empty/absent log handling — print 'No session activity recorded.' and exit 0",
+        "log aggregation — total lines, BACKUP count, SYNTAX_OK and SYNTAX_ERROR counts, first/last timestamps, top-3 most-edited files from BACKUP lines, per-extension reference counts",
+        "report rendering — produce the boxed report and emit it as a JSON {\"systemMessage\": \"...\"} object on stdout",
+        "always exit 0"
+      ]
+    },
+    "os_concepts_used": [
+      {
+        "concept": "Exit status as the inter-process control signal between a parent and the programs it invokes",
+        "anchor": "README §2: \"Hooks receive a JSON payload on stdin and communicate through exit codes.\" plus the Exit codes table (0 allow, 2 BLOCK, 1 warning) and hook_runner.sh TODO step 9 dispatching on EXIT_CODE."
+      },
+      {
+        "concept": "Standard streams and the fact that a stream/pipe is consumed once and cannot be re-read",
+        "anchor": "README §3 item 2: \"stdin can only be read once, but multiple hooks all need the same JSON. Save it to a temp file immediately.\" and the hook_runner.sh comment \"Read stdin into temp file (hooks need to re-read it)\"."
+      },
+      {
+        "concept": "Pipes as the mechanism that carries data between two processes",
+        "anchor": "README §3 Usage: \"echo '<json>' | ./hook_runner.sh <event_type> <tool_name>\" and the §2 communication model \"stdin (JSON) -> hook script\"."
+      },
+      {
+        "concept": "Process creation — a parent program spawning child processes and orchestrating them in order",
+        "anchor": "hook_runner.sh TODO step 8: \"Execute the hook script feeding it the saved stdin (TEMP_FILE).\" with step 9 stopping the chain on the first exit 2."
+      },
+      {
+        "concept": "File-based state persistence across independent process invocations (no shared memory between runs of the same script)",
+        "anchor": "README Hook 2 \"Bash skills practiced: File-based state persistence ... per-session tracking\" and \"State is stored in .claude/hooks/data/.command_count.\""
+      },
+      {
+        "concept": "Resource cleanup tied to process termination via a trap on EXIT, and the use of a temporary file as a re-readable buffer for a non-seekable pipe",
+        "anchor": "README §3 item 2: \"Use trap 'rm -f \\\"$TEMP\\\"' EXIT to clean up.\" and the hook_runner.sh provided lines TEMP_FILE=$(mktemp); trap ... EXIT; cat > \"$TEMP_FILE\"."
+      },
+      {
+        "concept": "A process's working directory is independent of where its executable lives; scripts must resolve their own location",
+        "anchor": "Walkthrough §4 step 1: HOOK_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\" with \"finds the directory where the hook script lives, regardless of where you run it from ... You must use this pattern in every hook.\""
+      },
+      {
+        "concept": "Reentrancy / preventing an event handler from re-triggering itself into infinite recursion",
+        "anchor": "README Hook 6 step 1: \"Extract stop_hook_active. If true, exit 0 immediately. This prevents Claude Code from entering an infinite Stop->Hook->Stop loop.\""
+      },
+      {
+        "concept": "Filesystem metadata (modification time) used to order files for retention/rotation",
+        "anchor": "README Hook 4 step 8: \"list them sorted newest-first (ls -t) and delete the oldest ones.\""
+      },
+      {
+        "concept": "Manual parsing of structured text without a structured parser (constraint-driven text processing)",
+        "anchor": "README §2: \"No jq! All JSON parsing must use basic Bash tools only (grep, sed, awk, cut, etc.).\""
+      },
+      {
+        "concept": "Process argument vector — reading positional arguments passed by the caller",
+        "anchor": "README §3 item 1: \"Read arguments — event_type from $1, tool_name from $2. Print usage and exit if either is missing.\" and the hook_runner.sh argument-validation block."
+      }
+    ],
+    "file_interactions": "hook_runner.sh is the orchestrator: it reads hooks_config.txt, buffers the single stdin JSON to a temp file, and for every config line whose event and matcher match the CLI arguments it spawns the corresponding hook script as a child process, feeding it the buffered JSON and inspecting that child's exit code and stderr; a child exit of 2 sets FINAL_EXIT and stops the chain. The six hooks do not call each other directly — they interact through shared files. All hooks read configuration from .claude/hooks/config/ (pre_command_firewall.sh reads dangerous_patterns.txt; pre_rate_limiter.sh and post_auto_backup.sh both read hooks.conf; pre_commit_validator.sh reads commit_prefixes.txt). pre_rate_limiter.sh both reads and rewrites the persistent state file data/.command_count and consumes the out-of-band data/.reset_commands flag file. The strongest implicit contract is the session log: post_auto_backup.sh writes 'BACKUP ...' lines and post_syntax_checker.sh writes 'SYNTAX_OK'/'SYNTAX_ERROR' lines into data/session_<id>.log, and post_session_summary.sh later parses exactly those line prefixes to produce its report — the log line format is the interface between the producers and the consumer.",
+    "key_decisions": [
+      "How the runner captures a child hook's stderr separately while still reading its exit code reliably (temp file for stderr vs command substitution vs process substitution, and where $? is sampled relative to redirections).",
+      "How pre_rate_limiter.sh rewrites only the current session's line in .command_count without corrupting or dropping the other sessions' lines, and how it updates the nested 'type:N,type:N' breakdown field.",
+      "The regex/parsing strategy pre_commit_validator.sh uses to recover the commit message across -m, -am and -a -m forms with single or double quotes, and what 'message length 10-72' is measured over (whole message including the prefix vs the text after the prefix).",
+      "The rotation policy in post_auto_backup.sh: how many backups are kept relative to MAX_BACKUPS (the off-by-one in 'count exceeds MAX_BACKUPS'), how ties are broken when backups share a one-second timestamp, and how MAX_BACKUPS is read from hooks.conf safely (parsed vs sourced) with its default.",
+      "How post_session_summary.sh serializes a multi-line, box-drawn report into a single valid JSON systemMessage value without jq, and how it extracts the unquoted boolean stop_hook_active.",
+      "The semantics post_session_summary.sh uses for 'file type counts' — counting every line that references a given extension vs counting distinct files — and how it produces 'top 3' when fewer than three files exist or counts tie."
+    ],
+    "provided_vs_implement_source": "given"
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "files": [
+        "hook_runner.sh"
+      ],
+      "focus": "the mechanics of the highlighted stderr/exit-code capture block",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "hook_runner.sh TODO step 8: \"Execute the hook script feeding it the saved stdin (TEMP_FILE). Capture stderr separately and save the exit code to EXIT_CODE.\" This requires the student to choose how to split a child process's streams while preserving its exit status.",
+      "examiner_notes": "Goal: surface real understanding of separating a child process's stderr from its numeric exit status. Ownership signal: when shown their specific capture lines, the student can explain how their chosen mechanism prevents stderr from leaking into the stdout flow and precisely why $? still captures the hook's exit code. The examiner should ask: 'What would $? capture if we used a standard pipe here instead?' Strong answers explain the ordering of redirections or process substitutions; weak answers just restate that they 'saved stderr' without knowing how $? behaves.",
+      "bad_versions_to_avoid": "Avoid a generic 'what is stderr' question; it must be tied to their specific capture mechanism and to the consequence for the exit-code dispatch. Do not assume they used a particular construct — ask them to walk through whichever one they wrote.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q02",
+      "files": [
+        "hook_runner.sh"
+      ],
+      "focus": "splitting a config line into event/matcher/script where the script path is everything after the second colon",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "hook_runner.sh TODO step 2: \"Split the line on ':' to get three fields: CONF_EVENT ... CONF_MATCHER ... CONF_SCRIPT — the path to the hook script (rest of line after second ':').\"",
+      "examiner_notes": "Goal: confirm the student understands why the third field is 'rest of line after the second colon' rather than simply the third colon-delimited token. Ownership signal: they can explain what their split does to a path that itself contained a ':' and contrast that with a naive third-field extraction, tracing one concrete config line through their code. Strong answers explain the field-collapsing behaviour of their tool of choice; weak answers describe splitting on ':' with no awareness of the 'rest of line' requirement.",
+      "bad_versions_to_avoid": "Don't make this a quiz about cut/awk flags in the abstract. Anchor it to their actual line-parsing code and to why the spec phrases the third field as a remainder, not a token.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q03",
+      "files": [
+        "hook_runner.sh"
+      ],
+      "focus": "the matcher test that accepts an exact tool name or the '*' wildcard while rejecting other tools and mismatched events",
+      "dimension": "edge_case",
+      "difficulty": "easy",
+      "anchor": "hook_runner.sh TODO steps 3-4: \"Skip the line if CONF_EVENT does not match EVENT_TYPE\" and \"Skip the line if CONF_MATCHER does not match TOOL_NAME and is not '*'.\"",
+      "examiner_notes": "Goal: a simple but real check that the student handles the wildcard as a special case rather than as a pattern. Ownership signal: they can say what their code does when the matcher is '*' versus an exact name, and what happens for the Stop:* config line versus a PreToolUse:Bash line given specific CLI arguments. Strong answers note that '*' is matched literally as 'any' (not glob-expanded against the tool name); weak answers conflate the two or assume substring matching.",
+      "bad_versions_to_avoid": "Keep it concrete with one event/tool pair; avoid drifting into runner-wide behaviour. Do not presume they implemented '*' via globbing — let them explain their own branch.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q05",
+      "files": [
+        "hook_runner.sh"
+      ],
+      "focus": "the exit-2 branch that prints BLOCKED, sets FINAL_EXIT, and breaks the chain, versus the README's statement that chain-stop is a PreToolUse behaviour",
+      "dimension": "api_depth",
+      "difficulty": "hard",
+      "anchor": "hook_runner.sh TODO step 9 (exit 2 -> set FINAL_EXIT=2, print chain-stopped message, break) read against README §3: \"For PreToolUse, the chain stops immediately on the first exit code 2.\"",
+      "examiner_notes": "Goal: probe whether the student understands that their runner stops the chain on any exit-2 regardless of event, while post-hooks are specified to never block — so the guard is effectively unreachable for PostToolUse but the code still treats it uniformly. Ownership signal: they can say what their runner would do if a PostToolUse hook hypothetically returned 2, and whether that matches the README's PreToolUse-only framing, without claiming behaviour their code does not have. Strong answers separate 'what the spec promises' from 'what my loop literally does'; weak answers just recite the exit-code table.",
+      "bad_versions_to_avoid": "Avoid implying there is a single correct event-conditional design — the skeleton dictates an unconditional break. Frame it as 'trace your loop on a hypothetical post-hook exit 2', not 'why did you choose this design'.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q06",
+      "files": [
+        "hook_runner.sh"
+      ],
+      "focus": "how FINAL_EXIT becomes the runner's own exit status and what a caller of the runner would do with it",
+      "dimension": "cross_file",
+      "difficulty": "medium",
+      "anchor": "hook_runner.sh provided final line 'exit $FINAL_EXIT' combined with TODO step 9 setting FINAL_EXIT=2; README §3 Example 2 shows the runner reflecting a blocked command.",
+      "examiner_notes": "Goal: connect a child's exit status to the parent's exit status — the runner is itself a process whose exit code communicates the chain outcome upward. Ownership signal: the student can trace how a single blocked hook propagates from EXIT_CODE through FINAL_EXIT to the runner's exit, and explain why a wrapper (or Claude Code) would treat a non-zero runner exit as 'the action was blocked'. Strong answers describe a two-level exit-status chain; weak answers describe only the printed summary and miss that the numeric status also propagates.",
+      "bad_versions_to_avoid": "Don't let this collapse into 'what does the summary print'. The point is the numeric status propagation, not the human-readable text.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q07",
+      "files": [
+        ".claude/hooks/pre_command_firewall.sh"
+      ],
+      "focus": "the early exit when tool_name is not Bash, given that hooks_config.txt already routes only Bash to this hook",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README Hook 1 step 3: \"If tool_name is not Bash, exit 0 — this hook only inspects shell commands.\" reinforced by test.sh \"Non-Bash tool should pass without inspection.\"",
+      "examiner_notes": "Goal: see whether the student understands why a hook still self-checks tool_name even though the runner/config is supposed to only send it Bash events. Ownership signal: they can articulate that a hook is an independent program that may be invoked directly, by Claude Code's own settings.json with a different matcher, or via a changed config, so it must not trust its caller's routing. Strong answers frame the check as defensive independence of a standalone process; weak answers say 'the spec told me to' with no reasoning.",
+      "bad_versions_to_avoid": "Avoid phrasing that accepts 'the config only sends Bash so it never matters' — push for why the hook is defensive anyway. Don't assume how they extract tool_name; focus on the guard's purpose.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q08",
+      "files": [
+        ".claude/hooks/pre_command_firewall.sh"
+      ],
+      "focus": "why the exit status of grep -qE (not its stdout) drives the block/allow decision in their matching loop",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "README Hook 1 step 5: \"Test the command against each pattern using grep -qE\"; the example dangerous_patterns.txt includes 'git push.*--force'.",
+      "examiner_notes": "Goal: genuine understanding that grep -q makes the decision by exit status, not printed output, and how that wires into their block/allow branch. Ownership signal: the student can explain what -q buys them in their loop and why grep's exit status (not its stdout) is what their if/branch tests, on a real entry from their pattern file. Optional follow-up only if time allows: ask them to predict how a '.*'-containing pattern (e.g. 'git push.*--force') matches a command with arguments in between. Strong answers connect -q's exit status to their block/allow branch; weak answers define grep generically.",
+      "bad_versions_to_avoid": "Not a flag-recitation quiz. It must land on a consequence in their own matching loop (why the exit status of grep, not its stdout, drives the decision).",
+      "conflicts_with": []
+    },
+    {
+      "id": "q09",
+      "files": [
+        ".claude/hooks/pre_command_firewall.sh"
+      ],
+      "focus": "extracting the command value from JSON when the command contains spaces, quotes, or colons, compared with the demo's file_path extraction",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "README Hook 1 step 2 \"Extract tool_name and command\"; the demo §4 step 3 only shows extracting a quoted file_path with grep -o/sed, while §2 forbids jq — the command field is harder than the demonstrated case.",
+      "examiner_notes": "Goal: probe whether the student's extraction survives realistic command strings (embedded quotes, colons, regex metacharacters) rather than only the tidy demo input. Ownership signal: they can name a concrete command their regex would mis-extract or truncate and explain why, since the demo pattern they adapted was built for a simple path value. Strong answers show awareness that the JSON is being parsed by hand and that the command is adversarial text; weak answers claim the demo regex 'just works' without testing a hostile case.",
+      "bad_versions_to_avoid": "Do not ask them to justify the demo's regex (it is provided). The question is about their own command extraction and a specific input that stresses it.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q10",
+      "files": [
+        ".claude/hooks/pre_command_firewall.sh"
+      ],
+      "focus": "loading patterns from dangerous_patterns.txt while skipping comment and blank lines, when the config may differ in tests",
+      "dimension": "error_handling",
+      "difficulty": "easy",
+      "anchor": "README Hook 1 step 4: \"Each non-comment, non-empty line is a regex pattern\"; README §2 warns the config files \"may contain different values ... do not hardcode.\"",
+      "examiner_notes": "Goal: confirm the student did not bake the example patterns into the script and that pattern loading is driven entirely by whatever file the harness supplies. Ownership signal: they can explain how their behaviour changes when the harness swaps in a different patterns file (different entries/count) and confirm nothing from the sample file is hardcoded. Note the comment/blank-skip loop itself is demonstrated in the §4 walkthrough — keep the probe on data-drivenness and robustness to a swapped config, not on restating the skip mechanism. Strong answers reason about the swapped-config behaviour change; weak answers reveal hardcoded patterns.",
+      "bad_versions_to_avoid": "Keep it about robustness to a swapped config, not about regex content. Avoid trivia about comment syntax.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q11",
+      "files": [
+        ".claude/hooks/pre_rate_limiter.sh"
+      ],
+      "focus": "rewriting only the current session's line in .command_count without losing or corrupting the other sessions' lines",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "README Hook 2 step 7: \"Write the updated line back to the state file, replacing the old one for this session\"; state format defined in step 3 as one line per session.",
+      "examiner_notes": "Goal: the central state-management decision — a shared flat file holding many sessions where only one line changes per run. Ownership signal: the student can describe their replace strategy (filter-out-then-append, in-place edit, rebuild via temp file) and what happens to the OTHER sessions' lines if the rewrite is careless. The key signal is awareness that this is the only place cross-run state lives and a naive rewrite drops sibling sessions. Optional depth probe only if time allows: what the file looks like if the script is interrupted mid-write. Strong answers reason about not dropping sibling sessions; weak answers describe appending unconditionally or only handle one session existing.",
+      "bad_versions_to_avoid": "Avoid steering toward a 'correct' tool. Probe the data-integrity reasoning for the multi-session file, not syntax. Do not introduce concurrency — the assignment runs hooks serially.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q12",
+      "files": [
+        ".claude/hooks/pre_rate_limiter.sh"
+      ],
+      "focus": "why per-session counts must live in a file rather than a shell variable, given each invocation is a fresh process",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "README Hook 2 \"Bash skills practiced: File-based state persistence ... per-session tracking\" and \"State is stored in .claude/hooks/data/.command_count.\"",
+      "examiner_notes": "Goal: connect the design to the OS reality that each hook run is a separate short-lived process with no memory of prior runs, so the count cannot be a variable. Ownership signal: the student can explain why incrementing an in-script counter would always read as the first command, and why the filesystem is the only thing that survives between invocations here. Strong answers articulate process lifetime vs persistent storage; weak answers describe the file mechanics without the 'why a file at all' insight.",
+      "bad_versions_to_avoid": "Don't accept 'because the spec says use a file'. The target is the process-lifetime reasoning. Keep it conceptual but tied to their counter code.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q13",
+      "files": [
+        ".claude/hooks/pre_rate_limiter.sh"
+      ],
+      "focus": "updating the nested 'cmd_type1:N,cmd_type2:N,...' breakdown when incrementing the first-word command type",
+      "dimension": "code_flow",
+      "difficulty": "hard",
+      "anchor": "README Hook 2 steps 3 and 6: state line format 'session_id|total|type1:N,type2:N,...' and \"Extract the first word of the command ... as the command type. Increment its per-type count.\"",
+      "examiner_notes": "Goal: trace how the student parses a structured sub-field, finds-or-creates the entry for the current command type, increments it, and reassembles the line. Ownership signal: they can walk ONE concrete example — an existing breakdown plus a new command whose type is already present — through their code and produce the resulting field. Optional follow-up only if the first trace is solid: the case where the command type is not yet in the breakdown. Strong answers handle the 'type already exists' path cleanly and can say how a first-time type would differ; weak answers only handle appending or only a present type.",
+      "bad_versions_to_avoid": "Pick one concrete starting breakdown and one new command rather than asking in the abstract. Do not require an exact final string — listen for correct find/create/increment logic.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q14",
+      "files": [
+        ".claude/hooks/pre_rate_limiter.sh"
+      ],
+      "focus": "the fallback to session_id 'default' when the JSON has no session_id",
+      "dimension": "edge_case",
+      "difficulty": "easy",
+      "anchor": "README Hook 2 step 1: \"If session_id is absent, use 'default'.\"",
+      "examiner_notes": "Goal: a simple edge that still tests parsing discipline — absent key versus present-but-empty value. Ownership signal: the student can say what their extraction yields when the key is missing entirely versus '\"session_id\":\"\"', and whether both route to 'default'. Strong answers distinguish the two cases consciously; weak answers assume the key is always present.",
+      "bad_versions_to_avoid": "Don't expand into the whole state machine. Keep it on the missing/empty session_id branch and its effect on which state line is used.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q15",
+      "files": [
+        ".claude/hooks/pre_rate_limiter.sh"
+      ],
+      "focus": "the ordering dependency of the .reset_commands flow relative to reading the existing count",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README Hook 2 step 8: \"If .reset_commands exists, delete this session's line ... remove the reset file, then proceed normally (count starts fresh at 1)\"; test.sh verifies the flag file is removed and the next command passes.",
+      "examiner_notes": "Goal: ensure the student understands why the reset block must execute before the count is read. Ownership signal: when shown their highlighted reset logic, the student can explain exactly what would happen to the count if this block were moved below the increment step. Strong answers explain the 'fresh at 1' arithmetic and the one-shot nature of the flag; weak answers fail to recognize that moving it would cause the next command to increment the old value before resetting.",
+      "bad_versions_to_avoid": "Avoid asking only 'what does .reset_commands do' (README states it). Probe the ordering relative to the count read and the one-shot nature of the flag.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q16",
+      "files": [
+        ".claude/hooks/pre_rate_limiter.sh"
+      ],
+      "focus": "the strict-greater-than at-limit boundary: the command bringing the total exactly to MAX_COMMANDS still passes (with a warning), only the next one blocks",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README Hook 2 step 9: \"Total > MAX_COMMANDS -> exit 2 ... Total > WARNING_THRESHOLD -> ... exit 0\"; test.sh treats the command exactly at MAX as 'pass with warning' and the next as blocked.",
+      "examiner_notes": "Goal: probe the strict-greater-than boundary — the command that brings the total exactly to MAX must still be allowed (with a warning under the WARNING_THRESHOLD logic), and only the command beyond MAX blocks. Ownership signal: the student can state, for their actual comparison operators, what happens for the command landing exactly at MAX_COMMANDS versus the one after it, matching the test's expectation. Strong answers reason precisely about > vs >= at the limit; weak answers are vague about the at-limit case.",
+      "bad_versions_to_avoid": "Don't ask for the literal numbers from the example conf. Probe the inequality boundaries using whatever thresholds, since the test swaps them.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q17",
+      "files": [
+        ".claude/hooks/pre_commit_validator.sh"
+      ],
+      "focus": "recovering the commit message across -m, -am and -a -m forms with single or double quotes",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "README Hook 3 step 3: \"Extract the commit message from -m \\\"...\\\". Handle: -m \\\"msg\\\", -am \\\"msg\\\", -a -m \\\"msg\\\".\"",
+      "examiner_notes": "Goal: this is a genuine parsing-design fork — several flag spellings and two quote styles, parsed by hand. Ownership signal: the student can describe their extraction approach and name a flag/quote combination it handles and one it deliberately does not, and why that trade-off is acceptable given the spec's enumerated forms. Strong answers show they reasoned about the enumerated variants rather than copying a single -m regex; weak answers handle only '-m \"...\"' and assume the rest.",
+      "bad_versions_to_avoid": "Do not ask for a perfect regex. Listen for deliberate handling of the listed variants and an honest account of the limits of their approach.",
+      "conflicts_with": [
+        "q20"
+      ]
+    },
+    {
+      "id": "q18",
+      "files": [
+        ".claude/hooks/pre_commit_validator.sh"
+      ],
+      "focus": "building the prefix-validation regex dynamically from commit_prefixes.txt and what a reduced (subset) file makes it accept or reject",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README Hook 3 step 4: \"Load valid prefixes from ... commit_prefixes.txt ... Build a regex like ^(feat|fix|docs|...): \" and step 5 wording \"never a prefix not on this list\" (subset).",
+      "examiner_notes": "Goal: confirm the validation set is derived from the file at runtime, not hardcoded, and that the assembled alternation is correctly anchored. Ownership signal: the student can trace, for a file containing only two prefixes, what regex their code builds and what it then accepts or rejects. Optional follow-up only if time allows: how blank/comment lines in that file are treated. Strong answers show the regex is data-driven and anchored at the start; weak answers reveal a fixed prefix list or an unanchored match.",
+      "bad_versions_to_avoid": "Avoid testing regex trivia. Anchor it to a reduced prefixes file and the resulting accept/reject behaviour of their built regex.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q19",
+      "files": [
+        ".claude/hooks/pre_commit_validator.sh"
+      ],
+      "focus": "running git diff --cached for the suggestion heuristic when there is no staged change or no git repository",
+      "dimension": "error_handling",
+      "difficulty": "hard",
+      "anchor": "README Hook 3 step 5: \"Run git diff --cached --stat and git diff --cached --name-status to inspect staged changes\" with a heuristic and a Default suggestion; README lists \"calling external commands (git diff)\" as a practiced skill.",
+      "examiner_notes": "Goal: probe what happens when the external command yields nothing or fails (not in a repo, nothing staged) yet the hook must still emit a block with a sensible suggestion. Ownership signal: the student can explain how their heuristic degrades — that empty diff output flows to the Default suggestion rather than crashing or producing an empty suggestion — and where they guard the external call. Strong answers treat git's failure/empty output as an expected branch reaching the Default; weak answers assume git always returns useful data.",
+      "bad_versions_to_avoid": "Do not require git internals. Keep it on their hook's behaviour when the external command is unhelpful and how the Default heuristic still fires.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q20",
+      "files": [
+        ".claude/hooks/pre_commit_validator.sh"
+      ],
+      "focus": "what the 10-72 length rule is measured over — the whole message including the prefix or only the text after the prefix",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README Hook 3 step 6: \"Message length must be 10-72 characters\"; test.sh blocks 'fix: bug' as too short with the comment 'even with valid prefix the message is too short after prefix' — the spec does not fully disambiguate, so the student must decide.",
+      "examiner_notes": "Goal: this is a real ownership point because the spec is ambiguous and the student had to pick an interpretation. Ownership signal: the student can state precisely what string their code measures, justify it against the failing test case, and predict the length their code computes for a borderline message. Strong answers commit to one definition and defend it with the test; weak answers are unsure what their own code counts.",
+      "bad_versions_to_avoid": "Do not present one interpretation as the only correct one. The value is hearing them defend whichever measurement their code actually performs.",
+      "conflicts_with": [
+        "q17"
+      ]
+    },
+    {
+      "id": "q21",
+      "files": [
+        ".claude/hooks/pre_commit_validator.sh"
+      ],
+      "focus": "the short-circuit logic of the prefix, length, and trailing-period checks",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README §5 note: \"test the conditions in the order they are listed ... inputs are guaranteed to violate at most one condition each\" and Hook 3 \"Behavior (check in this order).\"",
+      "examiner_notes": "Goal: confirm the student implemented the checks as an ordered short-circuit and understands why order is observable. Ownership signal: when the examiner highlights one specific check block, the student can construct a hypothetical message that violates both that rule and another rule, and explain exactly why the highlighted check wins (or loses) based on its current physical position in their code. Strong answers reason about short-circuit exits; weak answers think order is irrelevant because 'only one is wrong' without seeing the contrived multi-violation case.",
+      "bad_versions_to_avoid": "Avoid implying every test input is single-fault — the interesting case is the deliberately multi-fault message and which check wins.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q22",
+      "files": [
+        ".claude/hooks/pre_commit_validator.sh"
+      ],
+      "focus": "the trailing-period rejection versus a message that contains periods internally",
+      "dimension": "edge_case",
+      "difficulty": "easy",
+      "anchor": "README Hook 3 step 7: \"Message must not end with a period -> exit 2 if it does.\"",
+      "examiner_notes": "Goal: a small precision check — only the final character matters, not any period. Ownership signal: the student can say what their code does for a message with a mid-sentence period and no trailing one, versus one ending in a period, and how they isolate the last character. Strong answers test the final character specifically; weak answers would reject any message containing a dot.",
+      "bad_versions_to_avoid": "Keep it to the last-character semantics; do not expand into general punctuation rules the spec does not require.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q23",
+      "files": [
+        ".claude/hooks/post_auto_backup.sh"
+      ],
+      "focus": "the rotation step that keeps at most MAX_BACKUPS copies using newest-first ordering",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "README Hook 4 step 8: \"If count exceeds MAX_BACKUPS, list them sorted newest-first (ls -t) and delete the oldest ones.\"",
+      "examiner_notes": "Goal: probe the retention arithmetic — 'exceeds MAX_BACKUPS' implies you keep exactly MAX_BACKUPS and delete the remainder, and the deletion must target the oldest, which depends on a correct newest-first ordering. Ownership signal: the student can state, for MAX_BACKUPS = N and N+2 existing backups, exactly how many they delete and which, and how they derive 'oldest' from their listing. Strong answers nail the off-by-one and the ordering source; weak answers delete one indiscriminately or keep MAX_BACKUPS+1.",
+      "bad_versions_to_avoid": "Do not fixate on the example value 5. Probe the count arithmetic and the oldest-selection logic with whatever limit, since tests vary it.",
+      "conflicts_with": [
+        "q26"
+      ]
+    },
+    {
+      "id": "q24",
+      "files": [
+        ".claude/hooks/post_auto_backup.sh"
+      ],
+      "focus": "backup filenames built from a one-second-resolution timestamp when the same file is edited twice within a second",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "README Hook 4 step 3 timestamp 'date +%Y-%m-%d_%H%M%S' (one-second resolution) and step 8 rotation; test.sh inserts 'sleep 1' between backups to force unique timestamps, evidencing the granularity matters.",
+      "examiner_notes": "Goal: surface awareness that two edits in the same second produce the same backup name, so a second copy can overwrite the first, and that rotation ordering by time is ambiguous among same-second files. Ownership signal: the student can describe what their code does on a same-second second edit (overwrite, collision, or mitigation) and how that interacts with their rotation count. Strong answers recognise the granularity limit and trace its effect; weak answers assume every backup name is unique.",
+      "bad_versions_to_avoid": "Do not demand a 'right' fix — listen for whether they recognise the collision and can reason about its consequences in their own rotation logic.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q25",
+      "files": [
+        ".claude/hooks/post_auto_backup.sh"
+      ],
+      "focus": "the placement and execution-halting consequence of the empty/missing file guard",
+      "dimension": "error_handling",
+      "difficulty": "easy",
+      "anchor": "README Hook 4 step 2: \"If file_path is empty or the file does not exist, exit 0.\" test.sh checks a non-existent path exits 0.",
+      "examiner_notes": "Goal: confirm the student treats a missing target as a clean no-op and understands its structural prerequisite status. Ownership signal: when shown their highlighted exit 0 guard, the student can predict what specific errors or garbage data would be generated if this guard were moved below the timestamp generation or the cp command. Strong answers tie the early 0 exit to post-hook semantics; weak answers conflate 'file missing' with an error condition or don't realize the cp command would crash.",
+      "bad_versions_to_avoid": "Keep it on the empty/missing guard and the exit-0 rationale; do not broaden into general backup logic.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q26",
+      "files": [
+        ".claude/hooks/post_auto_backup.sh"
+      ],
+      "focus": "reading MAX_BACKUPS from a multi-key hooks.conf by parsing one key (not sourcing the file) and applying the default of 5",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "README Hook 4 step 8: \"Read MAX_BACKUPS from hooks.conf (default 5)\"; §2 warns configs may differ; the example hooks.conf mixes comments and several keys.",
+      "examiner_notes": "Goal: probe how the student pulls one key out of a multi-key, commented conf without executing the file, and how the default applies when the key or file is absent. Ownership signal: they can describe their extraction (e.g. grep/cut a single key) versus sourcing the file, and say when the default 5 kicks in. The core signal is separating 'parse a value' from 'execute the file'. Optional depth probe only if time allows: the risk of sourcing a malformed/untrusted conf. Strong answers separate parse-a-value from execute-the-file and handle the missing-key default; weak answers source the file blindly or hardcode 5.",
+      "bad_versions_to_avoid": "Avoid a generic config-parsing question — anchor it to selecting one key from this multi-key conf and to the default fallback path.",
+      "conflicts_with": [
+        "q23"
+      ]
+    },
+    {
+      "id": "q27",
+      "files": [
+        ".claude/hooks/post_syntax_checker.sh"
+      ],
+      "focus": "extension extraction via ${FILE_PATH##*.} for a filename that has no dot",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README Hook 5 steps 3-4: \"Extract the file extension: EXTENSION=\\\"${FILE_PATH##*.}\\\"\" then a case dispatch with an 'anything else' branch.",
+      "examiner_notes": "Goal: probe the known quirk that ${FILE_PATH##*.} on a name with no dot yields the whole name, which then must fall through to the 'no checker' branch and exit 0. Ownership signal: the student can predict what their EXTENSION variable holds for a dotless filename and confirm it lands in the default case rather than mis-dispatching. Strong answers trace the parameter-expansion result for the no-dot case; weak answers assume there is always a clean extension.",
+      "bad_versions_to_avoid": "Don't quiz parameter-expansion syntax abstractly. Use a concrete dotless filename and ask which case branch their code reaches.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q28",
+      "files": [
+        ".claude/hooks/post_syntax_checker.sh"
+      ],
+      "focus": "exiting 1 (not 2) on a detected syntax error",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "README Hook 5 steps 5-6 (\"Exit 1 (warning — non-fatal)\") read against §2 exit-code table and the diagram note that PostToolUse hooks \"Always exit 0 / never block.\"",
+      "examiner_notes": "Goal: connect the choice of exit 1 to the system rule that post-hooks must not block the already-completed action. Ownership signal: the student can explain why a syntax failure is reported as a non-fatal warning rather than a 2, and what the runner does with a 1 versus a 2 in its dispatch. Strong answers tie exit semantics to 'the edit already happened, blocking is meaningless'; weak answers pick 1 arbitrarily or think it could block.",
+      "bad_versions_to_avoid": "Avoid reciting the exit-code table. Push for why 1 is correct here specifically and how the runner classifies it.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q29",
+      "files": [
+        ".claude/hooks/post_syntax_checker.sh"
+      ],
+      "focus": "the exact mechanism used in the highlighted block to capture both the external checker's output and its exit status",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README Hook 5 steps 5-6: on non-zero \"Print 'SYNTAX ERROR ...' + error output to stderr ... Log SYNTAX_ERROR ... Exit 1\"; on success log SYNTAX_OK and exit 0.",
+      "examiner_notes": "Goal: trace how the student runs the checker and captures both outputs without clobbering the status code. Ownership signal: when shown their execution block, the student can explain how their syntax guarantees that $? reflects the checker's true status. The examiner should ask: 'If we changed this block to just capture the output into a variable, what might happen to the exit code we are trying to read?' Strong answers keep both the checker's exit status and its text available; weak answers capture output in a way that overwrites $?.",
+      "bad_versions_to_avoid": "Mirror q1's concern but for the checker, not the runner; keep it on the syntax hook's own capture/branch, not the runner.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q30",
+      "files": [
+        ".claude/hooks/post_syntax_checker.sh"
+      ],
+      "focus": "mapping both .c and .h to gcc -fsyntax-only and the consequence of syntax-checking a header standalone",
+      "dimension": "api_depth",
+      "difficulty": "hard",
+      "anchor": "README Hook 5 step 4: \".c or .h -> run gcc -fsyntax-only \\\"$FILE_PATH\\\".\"",
+      "examiner_notes": "Goal: genuine understanding of what -fsyntax-only does (parse, no codegen) and that compiling a header in isolation is a deliberate, slightly unusual choice with its own failure modes. Ownership signal: the student can explain what running the C front-end on a lone .h file checks and does not check, and why the spec still routes headers there. Strong answers reason about front-end-only checking and standalone-header caveats; weak answers think it 'compiles the program' or treat .h and .c as identical with no nuance.",
+      "bad_versions_to_avoid": "Do not drift into C language teaching. Keep it tied to why their case branch sends .h to the same tool and what that buys/limits.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q31",
+      "files": [
+        ".claude/hooks/post_session_summary.sh"
+      ],
+      "focus": "extracting the unquoted boolean stop_hook_active and short-circuiting on true, unlike the demo's quoted-string extraction",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README Hook 6 step 1: \"Extract stop_hook_active. If true, exit 0 immediately.\" The provided demo only shows extracting a quoted string value, so the unquoted boolean is the student's own parsing problem.",
+      "examiner_notes": "Goal: probe parsing a JSON value that is not quoted (true/false), distinguishing it from a present-but-false case and from the field being absent, then driving the guard. Ownership signal: the student can show how their extraction tells true from false without a quoted delimiter and what their code does when the field is missing. Strong answers handle the no-quotes value and the absent case deliberately; weak answers reuse the demo's quoted-string regex unchanged and never explain how true is detected.",
+      "bad_versions_to_avoid": "Do not ask why the loop guard exists (README explains the infinite-loop reason). Probe the boolean extraction and the branch, which the demo did not hand them.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q32",
+      "files": [
+        ".claude/hooks/post_session_summary.sh"
+      ],
+      "focus": "serializing the multi-line boxed report into a single valid JSON systemMessage value without jq",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "README Hook 6 step 5: the report \"is printed as a Claude Code systemMessage (JSON on stdout)\" wrapping a multi-line, box-drawn report; §2: \"No jq! All JSON parsing must use basic Bash tools only.\"",
+      "examiner_notes": "Goal: this is the richest serialization decision — turning text with newlines, quotes and box characters into one JSON string by hand. Ownership signal: the student can name which characters they had to escape to keep the JSON valid (newlines, double quotes at minimum) and where in their code that escaping happens relative to building the report. Strong answers show they understood they were emitting JSON, not just printing a report, and handled newline/quote escaping deliberately; weak answers print the report raw inside quotes and would produce invalid JSON.",
+      "bad_versions_to_avoid": "Do not ask for the exact escaped string. Listen for awareness of which characters break JSON and a deliberate escaping step, not a memorized answer.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q33",
+      "files": [
+        ".claude/hooks/post_session_summary.sh"
+      ],
+      "focus": "deriving the top-3 most-edited files from BACKUP lines when fewer than three files exist or counts tie",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README Hook 6 step 4: \"Top 3 most-edited files (from BACKUP lines)\"; the provided sample log has only two distinct backed-up files (src/main.c twice, src/utils.h once).",
+      "examiner_notes": "Goal: trace the count-group-sort-limit pipeline and its behaviour when there are fewer than three distinct files. Ownership signal: the student can walk the sample log (two distinct backed-up files) through their aggregation and explain why it lists two entries, not three, without crashing. Optional follow-up only if time allows: how ties between equal counts resolve in their implementation. Strong answers describe the count/sort/limit and handle <3 gracefully; weak answers assume exactly three or crash on fewer.",
+      "bad_versions_to_avoid": "Do not require exact tie-break ordering as a 'correct' answer — probe that they know and can justify their own ordering and the fewer-than-three case.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q34",
+      "files": [
+        ".claude/hooks/post_session_summary.sh"
+      ],
+      "focus": "the file-type counts that tally every line referencing an extension rather than counting distinct files",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "README Hook 6 step 5 table: \".c files: 4\" because main.c is referenced in lines 1,2,3 and broken.c in line 5, and \".h files: 2\" from lines 4 and 6 — i.e. references across all line types, not unique files.",
+      "examiner_notes": "Goal: surface the subtle counting semantic that this field counts references (any log line mentioning a file of that extension), not the number of distinct files. Ownership signal: they can explain why the per-extension count can exceed the number of distinct files of that extension, and that SYNTAX lines contribute too, not just BACKUP lines, tracing it on the sample log. Strong answers articulate references-not-files and which line kinds contribute; weak answers count distinct files or only BACKUP lines.",
+      "bad_versions_to_avoid": "Do not present this as 'count the files'. The diagnostic value is whether they know it is references across all line types, matching the README's worked numbers.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q35",
+      "files": [
+        ".claude/hooks/post_session_summary.sh"
+      ],
+      "focus": "the structural necessity of the empty/missing log guard preceding the parsing logic",
+      "dimension": "error_handling",
+      "difficulty": "easy",
+      "anchor": "README Hook 6 step 3: \"If the log doesn't exist or is empty, print 'No session activity recorded.' and exit 0.\" test.sh asserts this for an empty log.",
+      "examiner_notes": "Goal: confirm the student distinguishes 'no log' from 'empty log' and understands its prerequisite status. Ownership signal: when shown the highlighted guard, the student can explain what degenerate output (e.g., empty tables, zero-counts) or script errors would occur if this block were moved to the bottom of the script after the aggregation steps. Strong answers explain how the text processing tools (awk/grep) behave on an empty file; weak answers only check existence or only emptiness.",
+      "bad_versions_to_avoid": "Keep it on the missing-vs-empty distinction and guard placement; do not expand into the full report logic.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q36",
+      "files": [
+        ".claude/hooks/post_session_summary.sh",
+        ".claude/hooks/post_auto_backup.sh",
+        ".claude/hooks/post_syntax_checker.sh"
+      ],
+      "focus": "the summary's dependence on the exact line prefixes BACKUP, SYNTAX_OK and SYNTAX_ERROR emitted by the other two post-hooks",
+      "dimension": "cross_file",
+      "difficulty": "medium",
+      "anchor": "README Hook 6 step 4 counts BACKUP / SYNTAX_OK / SYNTAX_ERROR lines; those exact tokens are defined by Hook 4 step 7 and Hook 5 steps 5-6 — a hypothetical change in either producer changes the summary's numbers.",
+      "examiner_notes": "Goal: probe the consumer side of the inter-hook log contract — the summary trusts that the other two hooks emit those precise keywords. Ownership signal: the student can predict, as a hypothetical modification, how their summary's backup/syntax counts would shift if the backup or syntax hook relabelled its log keyword, and identify that the coupling is undocumented except through the log. Strong answers reason about the change propagating from producer to report; weak answers treat the summary as self-contained.",
+      "bad_versions_to_avoid": "Distinguish this from q27 by keeping the lens on the summary as the dependent consumer and on a hypothetical relabel by the producers, not on describing the format itself.",
+      "conflicts_with": []
+    }
+  ],
+  "final_stats": {
+    "total": 36,
+    "by_file": {
+      "hook_runner.sh": 6,
+      ".claude/hooks/pre_rate_limiter.sh": 6,
+      ".claude/hooks/pre_commit_validator.sh": 6,
+      ".claude/hooks/post_session_summary.sh": 6,
+      ".claude/hooks/post_auto_backup.sh": 5,
+      ".claude/hooks/post_syntax_checker.sh": 5,
+      ".claude/hooks/pre_command_firewall.sh": 4
+    },
+    "by_dimension": {
+      "edge_case": 9,
+      "code_flow": 8,
+      "design_choice": 7,
+      "api_depth": 6,
+      "error_handling": 4,
+      "cross_file": 2
+    },
+    "by_difficulty": {
+      "easy": 6,
+      "medium": 18,
+      "hard": 12
+    }
+  }
+}

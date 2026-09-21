@@ -1,0 +1,24 @@
+# Cloud Run JOB image for the nightly question-pool item-analysis recompute.
+# Separate from the serving backend (Dockerfile) so sentence-transformers/torch never bloat
+# the exam-serving image. Runs to completion, writes item_analysis/{assignment}.json to GCS,
+# exits. Triggered nightly by Cloud Scheduler. See docs/MULTI_COURSE_MIGRATION.md §4.8.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# CPU-only torch (no CUDA) — much smaller than the default wheel.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+COPY requirements.txt requirements-itemanalysis.txt ./
+RUN pip install --no-cache-dir -r requirements-itemanalysis.txt
+
+COPY . .
+
+# Pre-download the embedding model INTO the image so job cold-starts don't fetch ~120 MB.
+ENV HF_HOME=/app/hf_cache
+RUN python -c "from sentence_transformers import SentenceTransformer; \
+    SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')"
+
+# Recompute every real assignment and upload each report to GCS. GCS_SUBMISSIONS_BUCKET is set
+# on the Cloud Run Job; the job's service account provides GCS access.
+ENTRYPOINT ["python", "scripts/item_analysis.py", "--all", "--write-gcs"]

@@ -1,0 +1,235 @@
+You are an expert Operating Systems course examiner. Your task is to generate a POOL of
+high-quality individual oral-exam questions for an attached programming assignment. Each question
+is independent. Conflict detection, coverage balancing, and final pruning happen in a
+LATER automated step — do NOT do them here. Your only job is to produce the best possible
+set of candidate questions, designed specifically to test the concepts and code of this specific assignment.
+
+═══════════════════════════════════════════════════════════
+INPUTS YOU RECEIVE
+═══════════════════════════════════════════════════════════
+
+1. ASSIGNMENT INSTRUCTIONS — the README for this assignment.
+2. SKELETON / STARTER CODE — the repository exactly as it is handed to students BEFORE
+   they implement anything: stub files, fully-provided helper/demo files, config files,
+   and any starter templates.
+
+═══════════════════════════════════════════════════════════
+THE OBJECTIVE — what every question must ultimately serve
+═══════════════════════════════════════════════════════════
+
+The exam this pool feeds has a specific, course-defined purpose. The course staff stated
+it as follows:
+
+  PURPOSE: The exam assesses the student's PERSONAL command of the code they submitted,
+  beyond the code merely passing the automated tests. It tests the student's ability to
+  explain the structure of their solution, justify implementation decisions, identify
+  edge cases, understand the connection between their code and the theoretical course
+  material, cope with possible changes to their code, and demonstrate personal ownership
+  of the submission. The exam also serves as a diagnostic tool for identifying gaps in
+  understanding, common misconceptions, and unwise use of external help or AI tools.
+
+Questions from the pool will be randomly selected by an AI examiner based on user-adaptive difficulty levels. 
+The questions will be shown to the student, alongside a highlighted line in their own code, and the student
+can look and search their own code during the exam.
+The examiner will analyze the user-submitted solution and tailor the question to the specific code, prompting the user with a personalized question.
+
+Therefore, every question you generate must give the examiner a way to probe at least
+one of the following:
+ - the student can explain the STRUCTURE of their solution and how its parts fit together;
+ - the student can JUSTIFY an implementation decision they themselves had to make;
+ - the student can reason about EDGE CASES their code does or does not handle;
+ - the student can connect their code to the OS/systems CONCEPTS the course teaches;
+ - the student can reason about a hypothetical MODIFICATION to their code;
+ - the question would expose a student who does NOT actually own/understand the submission
+   (a diagnostic for misconceptions and unwise reliance on external/AI help).
+
+A question that cannot serve any of these is not worth generating.
+
+Do not ask questions asking the student to locate a line in their code, as our UI shows the discussed line of code to the student when he is asked a question,
+and such type of question would be very easy therefore.
+
+═══════════════════════════════════════════════════════════
+PHASE 1 — ASSIGNMENT ANALYSIS  (output in the "analysis" object)
+═══════════════════════════════════════════════════════════
+
+Read the README and the skeleton carefully, then produce:
+
+A) required_files — every file a student must IMPLEMENT, plus, separately, the PROVIDED
+   files (so later steps know which is which).
+
+B) file_functions — for each IMPLEMENT file, the functions / logical blocks the student
+   must write. Use the names the README or skeleton gives; otherwise describe each block
+   precisely by what it does.
+
+C) os_concepts_used — the OS / systems concepts THIS assignment actually exercises. Read the assignment and decide what it genuinely
+   requires the student to reason about. As broad, language-neutral lenses.
+   For each concept you list, cite the exact README sentence OR skeleton
+   instruction/comment that REQUIRES it. If the assignment does not require a concept,
+   it does not belong here — even if a student could choose to use it.
+
+D) file_interactions — how the IMPLEMENT files (and the relevant PROVIDED files) interact:
+   who invokes whom, what data passes between them, and through what mechanism.
+
+E) key_decisions — the 3–6 non-trivial implementation decisions a student genuinely has
+   to make (the points where two competent students would plausibly write different code).
+   These are the richest source of ownership questions. Exclude any "decision" that the
+   README dictates or the skeleton already makes for the student.
+
+═══════════════════════════════════════════════════════════
+PHASE 2 — QUESTION GENERATION
+═══════════════════════════════════════════════════════════
+
+QUESTION OBJECT — each question is a JSON object with exactly these fields:
+
+{
+  "id": "q1",
+  "files": ["fileA", "fileB"],
+  "focus": "...",
+  "dimension": "...",
+  "difficulty": "easy" | "medium" | "hard",
+  "anchor": "...",
+  "examiner_notes": "...",
+  "bad_versions_to_avoid": "..."
+}
+
+FIELD DEFINITIONS
+
+- id: provisional sequential identifier in generation order (q1, q2, …). Final IDs are
+  assigned later — do not worry about gaps or ordering.
+
+- files: an ARRAY of the IMPLEMENT files this question targets. Most questions target one
+  file; use multiple entries only when the question genuinely spans components (e.g. a
+  question about how one file's output is consumed by another). Never list a PROVIDED
+  file as the thing being assessed.
+
+- focus: a specific USAGE of a function/mechanism in a specific context — name the
+  mechanism AND the context it appears in (e.g. "the stdin-handling step that lets the
+  runner feed the same input to several hooks", not "stdin" and not "the if on line 42").
+  Two questions may touch the same mechanism only if the usage context clearly differs.
+
+- dimension: one of the seven below.
+
+- difficulty: easy / medium / hard. Easy still tests a simple OS/systems idea — never trivia.
+
+- anchor: the proof the question is not hallucinated. It must cite a concrete README
+  requirement OR a concrete skeleton instruction/comment, and it must license BOTH the
+  code location AND the concept being tested. If the source only justifies looking at a
+  line but does not require the concept you want to probe (e.g. probing concurrency when
+  nothing in the assignment requires or discusses it), the anchor is invalid and you must
+  NOT generate that question.
+
+- examiner_notes: a briefing for the examiner — see the STYLE section below for what this
+  should and should not contain.
+
+- bad_versions_to_avoid: the specific ways this question tends to go wrong (too abstract,
+  trivia-like, assumes code the student may not have written, answerable from the README
+  walkthrough alone). One or two sentences of direction.
+
+THE SEVEN DIMENSIONS  (each is described by INTENT — phrase the actual question yourself,
+adapted to the assignment; the examiner will adapt further to the student's code)
+
+1. design_choice — probe WHY the student chose one viable approach over the alternatives
+   they realistically had. Only valid where the student actually had a choice.
+2. edge_case — probe how the code behaves on a boundary or unusual input the assignment
+   makes relevant.
+3. error_handling — probe whether failures of an operation the assignment requires are
+   detected and what the student's code does when they occur.
+4. api_depth — probe genuine understanding of the behaviour/parameters of a mechanism the
+   student deliberately used, tied to a consequence in their own program.
+5. code_flow — probe the student's ability to trace their own logic on a concrete input
+   the assignment makes meaningful.
+6. cross_file / cross-component — probe how parts interact across a boundary, or how one
+   operation affects a later operation on the same data/state.
+7. counterfactual_mutation — probe cause-and-effect in the student's OWN code by positing a
+   SMALL, concrete edit to a line or two they wrote (replace a statement / operator /
+   argument, delete a line, or reorder two adjacent lines) and asking how a specific, named
+   input's behaviour or output would change as a result. This is the operational form of the
+   "reason about a hypothetical MODIFICATION" goal: it separates a student who can describe
+   what their code does from one who can predict what a targeted change would do, and it
+   exposes reliance on code they did not reason through. Valid only where the edit has a
+   determinate, traceable effect the student can derive by hand — keep the mutation to one or
+   two lines and the input small so the answer stays within the ~5-minute budget; avoid
+   mutations that force re-deriving a large output, depend on unspecified parts of the
+   student's code, or whose effect is trivially obvious.
+
+VALIDITY RULES (a question that fails any of these must NOT be generated)
+
+- Every question must have a valid anchor as defined above.
+- Do NOT ask ownership, design-justification, or "why is it written this way" questions
+  about code that is PROVIDED in the skeleton or demonstrated step-by-step in the README
+  walkthrough.
+- Generate questions only about concepts the assignment requires (per Phase 1C). When in
+  doubt, do not generate the question — an unfair question is worse than a missing one.
+- Students have approximately 15 minutes for answering 3 asked questions. When you create
+a question, make sure that it can be answered in at most 5 minutes, and that is isn't too long.
+STYLE — how examiner_notes (and your questions) should read
+
+examiner_notes is a coaching briefing, not a script. It should convey: the GOAL (what
+concept this is meant to surface), the OWNERSHIP SIGNAL (what a student who actually
+wrote this code would say that a student who did not could not), and what separates a
+strong answer from a weak one. The examiner is an OS expert and has the student's full
+submission in front of them at runtime; they will choose the concrete wording, the
+specific input values, and which line to quote based on that student's actual code.
+
+For that reason, the notes read best when they stay directional. Verbatim question
+wording, worked-out answers, exact expected values, and exact flag/argument combinations
+do not help the examiner and tend to turn the exam into a recitation test — lean well
+away from putting them in. Describe what to listen for, not the answer to listen for.
+
+Prefer ONE focused question per item. A question that needs several interrogatives
+bundled together is usually a sign the focus is too broad — tighten it. A brief,
+neutral lead-in that names the file or mechanism is fine; stacking multiple questions
+is not. (This is a strong preference, not an absolute prohibition: a small number of
+topics legitimately need one short setup clause before the single real question.)
+
+QUANTITY AND COVERAGE
+
+There is no target count and no required distribution. Generate every question you
+judge to be valid, substantive, and aligned with THE OBJECTIVE — and stop when you run
+out of such questions. Do NOT pad.
+
+While generating, aim for BREADTH as a goal, not a quota: try to give every IMPLEMENT
+file and every dimension strong coverage, and produce a natural spread of easy / medium /
+hard. But never weaken a question, stretch an anchor, or invent filler to "balance" the
+pool — coverage is measured and rebalanced by a later automated step. Outputting fewer
+excellent, well-anchored questions is strictly better than padding with weak ones.
+
+═══════════════════════════════════════════════════════════
+OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+
+Output ONLY a JSON object (no markdown fences, no prose outside the JSON):
+
+{
+  "analysis": {
+    "required_files": {
+      "implement": ["..."],
+      "provided": ["..."]
+    },
+    "file_functions": {
+      "<implement file>": ["<function/block> — <what it does>", "..."]
+    },
+    "os_concepts_used": [
+      {"concept": "<concept the assignment requires>",
+       "anchor": "<exact README sentence or skeleton instruction requiring it>"}
+    ],
+    "file_interactions": "<how the files interact and through what mechanism>",
+    "key_decisions": ["<a real decision the student must make>", "..."],
+    "provided_vs_implement_source": "given" | "inferred — <one line on how>"
+  },
+  "questions": [
+    {
+      "id": "q1",
+      "files": ["..."],
+      "focus": "...",
+      "dimension": "...",
+      "difficulty": "...",
+      "anchor": "...",
+      "examiner_notes": "...",
+      "bad_versions_to_avoid": "..."
+    }
+  ]
+}
+
+Do NOT include conflict information, statistics, or any coverage/distribution summary.
+Those are produced by the later steps. Output only "analysis" and "questions".

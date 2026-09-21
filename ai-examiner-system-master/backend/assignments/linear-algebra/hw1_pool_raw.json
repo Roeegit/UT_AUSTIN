@@ -1,0 +1,475 @@
+{
+  "analysis": {
+    "required_deliverables": {
+      "produced_by_student": [
+        "ex1.md — exercise 1(a) solving 4x+6=0 over Z_11, 1(b) solving x²=1 over Z_8, 1(c) proof that x²=1 has exactly two distinct solutions in a field where 2 is invertible, plus the count for F=Z_2",
+        "ex2.md — axiomatic proof that -(-a)=a in an arbitrary field",
+        "ex3.md — solution of three linear systems: (a) over R, (b) homogeneous over Z_11, (c) two equations in four unknowns over C",
+        "ex4.md — full classification (no solution / unique / infinitely many) of a 3×3 parametric system over R as a function of a",
+        "ex5.md — classification of the symmetric parametric system x+y+az=1, x+ay+z=1, ax+y+z=1 for every a, once over R and once over Z_3",
+        "ex6.md — decision with justification whether each of two given matrix pairs is row equivalent (parts a and b)"
+      ],
+      "provided": [
+        "The exercise sheet itself: the six problem statements, the given numerical systems and matrices, and the definition of row equivalence given in exercise 6 ('מטריצות A,B נקראות שקולות שורה אם ניתן להגיע מ-A ל-B ע\"י פעולות שורה אלמנטריות')"
+      ]
+    },
+    "deliverable_components": {
+      "ex1.md": [
+        "1(a) isolation of x in 4x+6=0 over Z_11 — requires producing/justifying the multiplicative inverse of 4 mod 11",
+        "1(a) presentation of the solution as a residue class in Z_11 and (optionally) verification",
+        "1(b) determination of the full solution set of x²=1 in Z_8 — requires either exhaustive scan of the 8 residues or a divisibility argument",
+        "1(b) implicit recognition that Z_8 is not a field / has zero divisors, so a factoring argument does not close the case",
+        "1(c) factorisation step x²=1 ⇒ (x-1)(x+1)=0 and the appeal to absence of zero divisors in a field",
+        "1(c) use of the hypothesis '2 is invertible' to show 1 ≠ -1 (distinctness)",
+        "1(c) closing the 'exactly two' claim: both are solutions, they are distinct, and there are no others",
+        "1(c) the Z_2 count and the reason the hypothesis fails there"
+      ],
+      "ex2.md": [
+        "Statement of what -(-a) denotes by definition (the additive inverse of -a)",
+        "The chain of axiom-justified equalities producing -(-a)=a",
+        "The step relying on uniqueness of the additive inverse (either proved or cited) or on cancellation of addition",
+        "Explicit naming of the axioms used (associativity, neutral element, existence of additive inverse, commutativity)"
+      ],
+      "ex3.md": [
+        "3(a) choice of pivot order / row swap given that the first equation lacks x, and the elimination itself",
+        "3(a) reading off the unique solution from the echelon form and stating the solution set",
+        "3(b) elimination over Z_11 with inverses of nonzero residues instead of fractions",
+        "3(b) conclusion about the homogeneous system (only the trivial solution) and its justification from the pivot count",
+        "3(c) elimination with the complex pivot i (dividing by i, arithmetic with 1-2i, 1-3i)",
+        "3(c) selection of free variables and presentation of the solution set in parametric/vector form over C"
+      ],
+      "ex4.md": [
+        "Setting up the augmented matrix with the parameter a and performing elimination without illegally dividing by expressions in a",
+        "Identification of the exceptional values of a (where a pivot expression vanishes / the determinant is 0)",
+        "Separate treatment of each exceptional value, deciding inconsistency vs. infinitely many solutions",
+        "Statement of the generic case (unique solution) and of the final classification for all a ∈ R"
+      ],
+      "ex5.md": [
+        "Elimination or determinant computation for the symmetric system with parameter a",
+        "Identification of the exceptional values over R (a=1 and a=-2) and their different behaviour (many vs. none)",
+        "Redoing the analysis over Z_3, including the observation that -2 ≡ 1 there",
+        "Statement of the solution count over Z_3 in terms appropriate to a finite field"
+      ],
+      "ex6.md": [
+        "6(a) computation of a row-equivalence invariant (RREF / row space / rank) for both matrices and the conclusion of non-equivalence",
+        "6(a) the argument that non-equivalence cannot be established by failed attempts but only by an invariant",
+        "6(b) computation showing both matrices are invertible / reduce to I, hence equivalent",
+        "6(b) implicit use of reversibility of elementary row operations (symmetry and transitivity of row equivalence) to connect A to B through a common form"
+      ]
+    },
+    "course_concepts_used": [
+      {
+        "concept": "Fields and Z_p: invertibility of elements, zero divisors, and the failure of field properties in Z_n for composite n",
+        "anchor": "\"א. פתרו את את המשוואה $4x + 6 = 0$ מעל $\\mathbb{Z}_{11}$. ב. פתרו את המשוואה $x^2 = 1$ מעל $\\mathbb{Z}_8$.\""
+      },
+      {
+        "concept": "Field axioms and formal deduction from them (additive inverse, neutral element, uniqueness of inverses)",
+        "anchor": "\"יהיו $\\mathbb{F}$ שדה ו־$a \\in \\mathbb{F}$. הוכיחו בעזרת אקסיומות השדה כי $-(-a) = a$.\""
+      },
+      {
+        "concept": "Consequences of invertibility of a scalar (here 2) in a general field for counting roots of x²=1",
+        "anchor": "\"יהי $\\mathbb{F}$ שדה שבו $2$ הפיך. הוכיחו כי למשוואה $x^2 = 1$ מעל $\\mathbb{F}$ יש בדיוק שני פתרונות שונים.\""
+      },
+      {
+        "concept": "Systems of linear equations and Gaussian elimination / row echelon form over an arbitrary field (R, Z_11, C)",
+        "anchor": "\"פתרו את מערכות המשוואות הבאות מעל השדה המתאים.\""
+      },
+      {
+        "concept": "Homogeneous systems and the trivial solution",
+        "anchor": "\"ב. $\\begin{cases} 5x + 3y + 3z = 0 \\\\ 7x + 3y + 7z = 0 \\\\ 7x + 9y = 0 \\end{cases}$ מעל $\\mathbb{Z}_{11}$.\""
+      },
+      {
+        "concept": "Free variables / parametric description of an infinite solution set (underdetermined system with more unknowns than equations)",
+        "anchor": "\"ג. $\\begin{cases} ix + 2y + z + 2w = 3 \\\\ x + (1 - 2i)y + z = 1 - 3i \\end{cases}$ מעל $\\mathbb{C}$.\""
+      },
+      {
+        "concept": "Classification of solution sets of a parametric system (no solution / unique / infinitely many) and the case analysis on the parameter",
+        "anchor": "\"לכל $a \\in \\mathbb{R}$ קבעו האם למערכת אין פתרון/יש פתרון יחיד/יש אינסוף פתרונות.\""
+      },
+      {
+        "concept": "Dependence of the solution set on the underlying field (same system over R and over Z_3)",
+        "anchor": "\"לכל $a \\in \\mathbb{F}$ קבעו האם למערכת הבאה אין פתרון/יש פתרון יחיד/יש אינסוף פתרונות כאשר: $\\mathbb{F} = \\mathbb{R}$ .i, $\\mathbb{F} = \\mathbb{Z}_3$ .ii\""
+      },
+      {
+        "concept": "Elementary row operations, row equivalence, and its invariants (reduced echelon form, row space, rank/invertibility)",
+        "anchor": "\"הגדרה: מטריצות $A, B$ נקראות שקולות שורה אם ניתן להגיע מ־$A$ ל־$B$ ע\\\"י פעולות שורה אלמנטריות. האם המטריצות הבאות שקולות שורה? נמקו.\""
+      }
+    ],
+    "deliverable_dependencies": "The six exercises are formally independent — no exercise instructs the student to use a result from another. There are two natural conceptual links a strong student may exploit: exercise 1(b) (Z_8) is the concrete counterexample to the hypothesis of 1(c) (2 invertible / no zero divisors), and exercises 4 and 5 use the same parametric case-analysis technique as exercise 3's elimination, with exercise 5 additionally revisiting the same system over a different field. Exercise 6 may reuse the row-reduction machinery from exercise 3 but is otherwise standalone.",
+    "key_decisions": [
+      "In 1(b): exhaustive check of all eight residues in Z_8 versus a structural/divisibility argument — and how the student closes the exhaustiveness gap.",
+      "In 1(c): how to prove 'exactly two' — factoring x²-1 and invoking absence of zero divisors, versus an argument by cases on x, and how the hypothesis '2 invertible' is used to get distinctness rather than existence.",
+      "In ex2: whether to invoke (or prove) uniqueness of the additive inverse, or to argue by adding (-a)+a to both sides / cancellation; and which axioms are named.",
+      "In ex3: pivoting strategy (row swap in 3(a) because the first equation lacks x; which variables are taken as free in 3(c)) and the form in which the infinite solution set is presented.",
+      "In ex4 and ex5: determinant-and-then-special-cases versus straight elimination with case splits — and where to place the case split so no division by a possibly-zero expression in a occurs.",
+      "In ex5(ii): how to treat Z_3 — re-deriving from scratch, or reusing the R analysis while noting that -2 ≡ 1 (mod 3) collapses the two exceptional values; and how to phrase 'infinitely many' over a finite field.",
+      "In ex6: which invariant to use to certify non-equivalence in (a), and whether (b) is settled by invertibility/determinant or by exhibiting reductions to a common form."
+    ],
+    "provided_vs_produced_source": "given"
+  },
+  "questions": [
+    {
+      "id": "q1",
+      "files": ["ex1.md"],
+      "focus": "the step in 1(a) where the equation 4x+6=0 over Z_11 is turned into an explicit value of x by using the multiplicative inverse of 4",
+      "dimension": "justification",
+      "difficulty": "easy",
+      "anchor": "Exercise 1(a) requires 'פתרו את המשוואה 4x+6=0 מעל Z_11', which cannot be done without justifying that 4 is invertible in Z_11 and identifying its inverse.",
+      "examiner_notes": "Goal: see whether the student treats division in Z_11 as multiplication by an inverse rather than as ordinary fraction arithmetic. Ask what licenses the move they made and how the inverse was obtained. Ownership signal: a student who did the arithmetic themselves can say concretely how they found the inverse (search, or solving 4k ≡ 1) and can verify it on the spot; someone reciting a copied answer typically just re-reads the number. Listen for whether they know that in Z_p every nonzero element is invertible, not just this one.",
+      "excellent_answer": "5/5: identifies that the step is multiplication by 4⁻¹, states the inverse and verifies 4·3=12≡1 (i.e. 4⁻¹=3), notes that in Z_11 invertibility of 4 is guaranteed because 11 is prime and 4≢0, and can substitute the answer back to check. A 3/5 recites the final value and 'I divided by 4' without connecting division to an inverse or to the primality of 11.",
+      "bad_versions_to_avoid": "Do not turn it into a mental-arithmetic quiz on other inverses mod 11; do not ask for the general Euclidean-algorithm procedure, which the assignment does not require."
+    },
+    {
+      "id": "q2",
+      "files": ["ex1.md"],
+      "focus": "the dependence of the 1(a) argument on the modulus, probed by replacing Z_11 with a ring where the leading coefficient is not invertible",
+      "dimension": "counterfactual_mutation",
+      "difficulty": "medium",
+      "anchor": "Exercise 1(a) is set over Z_11 while 1(b) is set over Z_8, so the assignment itself makes invertibility of coefficients modulo n a required object of reasoning.",
+      "examiner_notes": "Goal: test whether the student understands that their solution method depends on the coefficient being invertible, not merely on 'doing algebra'. Ask what would happen to their own step if the same equation were posed over a modulus in which the leading coefficient is not invertible, and which line of their solution is the first to break. A strong answer separates 'no solution' from 'several solutions' and can say which occurs based on a divisibility condition. Weak answers claim the method works identically or that there is always exactly one solution.",
+      "excellent_answer": "5/5: names the exact step (multiplying by the inverse) as the first failure, explains that a non-invertible coefficient makes the linear equation possibly unsolvable or possibly multi-solution, and illustrates with a concrete small example (e.g. 4x ≡ 5 vs 4x ≡ 2 modulo 8 or 12), tying it to gcd/zero-divisor language. A 3/5 says only 'you cannot divide there' without describing what the solution set then looks like.",
+      "bad_versions_to_avoid": "Avoid asking for a general theory of linear congruences or the CRT; keep the mutation to a single modulus change with a determinate, hand-checkable answer."
+    },
+    {
+      "id": "q3",
+      "files": ["ex1.md"],
+      "focus": "the way the solution set of x²=1 over Z_8 in 1(b) is shown to be complete — no residue omitted",
+      "dimension": "case_completeness",
+      "difficulty": "medium",
+      "anchor": "Exercise 1(b) asks 'פתרו את המשוואה x²=1 מעל Z_8', i.e. to find the whole solution set, which requires an argument covering every element of Z_8.",
+      "examiner_notes": "Goal: probe exhaustiveness. If the student scanned residues, ask why the scan is legitimate and complete; if they factored, ask what closes the gap between the factored equation and the list of roots. Ownership signal: the student can state how many candidates had to be tested and why finitely many suffice, and can name the residues that unexpectedly satisfy the equation. Listen for awareness that a factoring argument alone is not conclusive here.",
+      "excellent_answer": "5/5: states the full solution set (1,3,5,7) and justifies completeness either by checking all eight residue classes or by a correct divisibility argument, and explicitly notes why the naive 'x=±1' conclusion fails in Z_8. A 3/5 lists the right answers but cannot explain why nothing else can occur.",
+      "bad_versions_to_avoid": "Do not ask them to recompute all eight squares out loud (time sink); focus on the completeness argument, and do not assume they used any particular method."
+    },
+    {
+      "id": "q4",
+      "files": ["ex1.md"],
+      "focus": "the tension between the solution count found in 1(b) over Z_8 and the 'exactly two' claim proved in 1(c)",
+      "dimension": "justification",
+      "difficulty": "medium",
+      "anchor": "Exercise 1 places 1(b) (x²=1 over Z_8) directly before 1(c) ('יהי F שדה שבו 2 הפיך. הוכיחו כי למשוואה x²=1 מעל F יש בדיוק שני פתרונות שונים'), so reconciling the two is required by the exercise's own content.",
+      "examiner_notes": "Goal: check that the student knows exactly which hypothesis of their 1(c) proof Z_8 violates. Ask which line of their own 1(c) argument would break if F were replaced by Z_8. The best answers point at the no-zero-divisors step (an inference available only in a field), not merely at '2 is not invertible in Z_8' — although a strong student can address both and note that 2 being non-invertible is not the operative failure here. Weak answers say vaguely 'Z_8 is not a field'.",
+      "excellent_answer": "5/5: identifies the step '(x-1)(x+1)=0 ⇒ one factor is 0' as the point of failure, exhibits the concrete zero-divisor factorisation for one of the extra roots (e.g. x=3: 2·4=8≡0), and distinguishes this from the separate role of 2's invertibility (which governs distinctness of the two roots, cf. Z_2). A 3/5 notes Z_8 is not a field without locating the failing inference.",
+      "bad_versions_to_avoid": "Do not let it become a general lecture request on rings; keep it tied to a specific line of the student's own 1(c) proof."
+    },
+    {
+      "id": "q5",
+      "files": ["ex1.md"],
+      "focus": "the inference in 1(c) from (x-1)(x+1)=0 to 'x=1 or x=-1' inside an arbitrary field",
+      "dimension": "justification",
+      "difficulty": "medium",
+      "anchor": "Exercise 1(c) says 'הוכיחו כי למשוואה x²=1 מעל F יש בדיוק שני פתרונות שונים', which forces a justified passage from the factored equation to the list of roots using only field properties.",
+      "examiner_notes": "Goal: see whether the student can supply the field-theoretic reason for a step most write as obvious. Ask what property of F licenses it and, if they cite 'no zero divisors', ask how that itself follows from the field axioms. A strong student can sketch the one-line derivation from invertibility of a nonzero element. Weak answers treat it as a rule of algebra with no justification.",
+      "excellent_answer": "5/5: names absence of zero divisors (integral-domain property) as the licence and derives it: if uv=0 and u≠0 then multiplying by u⁻¹ gives v=0; then applies it with u=x-1, v=x+1. A 3/5 asserts 'in a field a product is zero only if a factor is zero' without deriving it from invertibility.",
+      "bad_versions_to_avoid": "Do not accept or ask about polynomial-degree arguments as the expected route; the assignment gives only field axioms at this stage."
+    },
+    {
+      "id": "q6",
+      "files": ["ex1.md"],
+      "focus": "the role of the hypothesis '2 is invertible' in the 1(c) proof of exactly two DISTINCT solutions",
+      "dimension": "claim_direction",
+      "difficulty": "hard",
+      "anchor": "Exercise 1(c) states the hypothesis 'שדה שבו 2 הפיך' and asks for 'בדיוק שני פתרונות שונים', so the proof must account for both the count and the distinctness.",
+      "examiner_notes": "Goal: test whether the student sees that 'exactly two distinct' has three obligations — both candidates are solutions, they are different, and nothing else is a solution — and that the hypothesis on 2 serves precisely the middle one. Ask where in their argument the hypothesis is actually used, and what remains true if it is dropped. Ownership signal: the student can say what fails without it while the factorisation part survives untouched.",
+      "excellent_answer": "5/5: shows 1 ≠ -1 is equivalent to 2 ≠ 0, i.e. to 2 being invertible in a field, and locates exactly that use in their proof; notes that existence and 'no others' do not need the hypothesis, so without it one still gets at most two roots but possibly only one. A 3/5 mentions '1≠-1 because 2≠0' but cannot separate the three obligations of the claim.",
+      "bad_versions_to_avoid": "Do not phrase it so that the answer is simply 'characteristic 2' jargon; require the student to connect it to their own line and to what the claim asserted."
+    },
+    {
+      "id": "q7",
+      "files": ["ex1.md"],
+      "focus": "the final sub-question of 1(c): the number of solutions of x²=1 when F=Z_2",
+      "dimension": "edge_case",
+      "difficulty": "easy",
+      "anchor": "Exercise 1(c) ends with 'כמה פתרונות שונים יש כאשר F = Z_2?', an explicitly required degenerate case.",
+      "examiner_notes": "Goal: check the student actually reasoned about this degenerate field rather than pattern-matching the count 2. Ask for the count and the reason it differs from the general statement. Listen for the identification 1 = -1 in Z_2 and for correctly saying the solution set has one element even though the general proof gave two candidates.",
+      "excellent_answer": "5/5: answers one solution (x=1), explains that in Z_2 we have -1=1 so the two candidate roots coincide, and connects this back to the failure of the hypothesis (2=0 is not invertible). A 3/5 gives the number 1 with only 'because Z_2 is small' or a check of both elements and no link to the hypothesis.",
+      "bad_versions_to_avoid": "Do not make it a trivia question about |Z_2|; the substance is the collapse of the two roots and its relation to the hypothesis."
+    },
+    {
+      "id": "q8",
+      "files": ["ex1.md"],
+      "focus": "the choice of proof route in 1(c) — factoring x²-1 versus arguing directly about a solution x and its inverse or a case split",
+      "dimension": "method_choice",
+      "difficulty": "medium",
+      "anchor": "Exercise 1(c) prescribes only the statement to prove ('הוכיחו כי למשוואה x²=1 מעל F יש בדיוק שני פתרונות שונים'), leaving the proof strategy entirely to the student.",
+      "examiner_notes": "Goal: elicit a genuine justification of the route taken. Ask what alternative they considered and what it would have cost in axiomatic overhead. A strong answer explains why the factorisation route is economical (it converts the problem into one application of no-zero-divisors) and describes concretely how a case-based or inverse-based argument would proceed and where it would need more work. Weak answers say only 'this is the standard way'.",
+      "excellent_answer": "5/5: articulates their route, names a real alternative (e.g. assume x≠1 and derive x=-1 by multiplying by (x-1)⁻¹, or case-split on x=0/x≠0), and identifies the extra hypotheses or steps the alternative needs — plus notes that both must still handle distinctness separately. A 3/5 describes their own route accurately but cannot describe any alternative.",
+      "bad_versions_to_avoid": "Do not require knowledge of results not yet available (polynomial root bounds, group theory); keep alternatives within the field axioms."
+    },
+    {
+      "id": "q9",
+      "files": ["ex2.md"],
+      "focus": "the definitional content of the symbol -(-a) at the start of the ex2 proof",
+      "dimension": "justification",
+      "difficulty": "easy",
+      "anchor": "Exercise 2 requires 'הוכיחו בעזרת אקסיומות השדה כי -(-a)=a', so the proof must rest on what the notation -(-a) means axiomatically.",
+      "examiner_notes": "Goal: check that the student's proof begins from a definition and not from a manipulation rule. Ask what object -(-a) is by definition and what equation it satisfies. Ownership signal: a student who wrote this proof themselves states the defining equation (-a) + (-(-a)) = 0 and can say what still must be argued after that. Weak answers treat the minus sign as an operation with the rule 'two minuses cancel'.",
+      "excellent_answer": "5/5: states that -(-a) denotes the additive inverse of the element -a, i.e. the element y with (-a)+y=0, and explains that the proof consists in showing a is such a y and that such a y is unique. A 3/5 gives the defining property but does not see that uniqueness (or cancellation) is what closes the argument.",
+      "bad_versions_to_avoid": "Do not ask them to recite the field axiom list; the point is the definition of the additive inverse in their own proof."
+    },
+    {
+      "id": "q10",
+      "files": ["ex2.md"],
+      "focus": "the step in ex2 that converts 'a is an additive inverse of -a' into 'a equals -(-a)'",
+      "dimension": "justification",
+      "difficulty": "hard",
+      "anchor": "Exercise 2 demands a proof 'בעזרת אקסיומות השדה', so the step from exhibiting an inverse to identifying it with -(-a) must itself be justified from the axioms.",
+      "examiner_notes": "Goal: probe the most commonly skipped step — uniqueness of the additive inverse (or, equivalently, cancellation of addition). Ask what licenses the conclusion of equality, and if they cite uniqueness, ask for its one-line proof from the axioms. Ownership signal: the student can produce the short chain using associativity, the neutral element and commutativity. Weak answers assert 'the inverse is unique' as a known fact with no derivation, or silently use cancellation.",
+      "excellent_answer": "5/5: identifies the step, states uniqueness of the additive inverse, and proves it: if y+u=0 and y+v=0 then u = u+0 = u+(y+v) = (u+y)+v = 0+v = v, naming each axiom used; then applies it to y=-a with u=a, v=-(-a). A 3/5 recognises that uniqueness is being used but cannot justify it from the axioms.",
+      "bad_versions_to_avoid": "Do not accept the question being answered by re-reading the proof aloud; the examiner should press for the justification of the equality step specifically."
+    },
+    {
+      "id": "q11",
+      "files": ["ex2.md"],
+      "focus": "which of the field axioms the ex2 proof actually consumes, tested by weakening the structure",
+      "dimension": "counterfactual_mutation",
+      "difficulty": "medium",
+      "anchor": "Exercise 2 says the proof must be 'בעזרת אקסיומות השדה', which makes the set of axioms genuinely used a legitimate object of examination.",
+      "examiner_notes": "Goal: see whether the student can audit their own proof. Ask whether their argument would survive in a structure with only the additive axioms (no multiplication, or with multiplication not invertible — e.g. Z_8 with addition), and which of their lines, if any, uses a multiplicative axiom. A strong student answers that the whole proof lives in the additive group and can say why that is unsurprising. Weak answers claim the field structure is needed everywhere.",
+      "excellent_answer": "5/5: states that only associativity of +, existence of 0, existence of additive inverses (and possibly commutativity of +) are used, so the identity holds in any abelian group or even in Z_n for composite n; correctly notes that no multiplicative axiom appears anywhere in their chain. A 3/5 says 'probably only the addition axioms' without being able to run through their own lines to confirm.",
+      "bad_versions_to_avoid": "Do not require group-theory terminology the course may not yet have introduced; accept a description in terms of 'only the axioms about addition'."
+    },
+    {
+      "id": "q12",
+      "files": ["ex3.md"],
+      "focus": "the pivoting decision in 3(a), where the first equation contains no x term",
+      "dimension": "method_choice",
+      "difficulty": "easy",
+      "anchor": "Exercise 3(a) presents the system with first equation 3y+6z=-9, no x term, and asks 'פתרו את מערכות המשוואות הבאות מעל השדה המתאים', so the ordering/pivot choice is the student's own.",
+      "examiner_notes": "Goal: check the student understands why they reordered (or did not reorder) the equations and that row swapping is a legitimate elementary operation that does not change the solution set. Ask what motivated their arrangement and what would have gone wrong keeping the given order. Listen for awareness that a zero in the pivot position forces a swap, and that swapping is reversible.",
+      "excellent_answer": "5/5: explains that a nonzero pivot in the x-column is needed, that the given first equation has a zero there, and that swapping rows (or choosing a different elimination order) is an elementary operation preserving the solution set; may add that keeping the order is fine if one eliminates in a different variable order. A 3/5 describes what they did but gives no reason beyond 'it was easier'.",
+      "bad_versions_to_avoid": "Do not ask them to redo the elimination; keep the focus on the reason for the ordering decision."
+    },
+    {
+      "id": "q13",
+      "files": ["ex3.md"],
+      "focus": "how the echelon form obtained in 3(a) certifies that the real solution found is the only one",
+      "dimension": "justification",
+      "difficulty": "medium",
+      "anchor": "Exercise 3 asks to solve the systems ('פתרו את מערכות המשוואות הבאות'), which requires knowing that the produced triple is the complete solution set, not merely a solution.",
+      "examiner_notes": "Goal: distinguish 'I found numbers that work' from 'I determined the solution set'. Ask what feature of their final form guarantees uniqueness, and what a different final form would have looked like had there been infinitely many solutions. Ownership signal: the student talks about pivots/leading variables and the absence of free variables, and knows that elimination steps are reversible so no solutions were lost or gained.",
+      "excellent_answer": "5/5: points to three pivots / no free variables in the reduced system, notes that each elementary operation is invertible so the reduced system has exactly the same solution set as the original, and contrasts with what a free column or a 0=c row would have meant. A 3/5 says 'each variable came out to a single number' without the pivot/reversibility reasoning.",
+      "bad_versions_to_avoid": "Do not ask for a formal rank–nullity statement, which the assignment does not require at this stage."
+    },
+    {
+      "id": "q14",
+      "files": ["ex3.md"],
+      "focus": "the interpretation of the outcome of 3(b), a homogeneous system over Z_11",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "Exercise 3(b) gives a system with all right-hand sides 0 over Z_11 and asks for its solution, making the homogeneous/trivial-solution structure part of the required reasoning.",
+      "examiner_notes": "Goal: check the student recognises the special structure of a homogeneous system: it is never inconsistent, so the only real question is uniqueness. Ask what the possible outcomes were before computing, and how their computation decided between them. Ownership signal: the student can state the answer they got and explain what in the reduced form told them there were no nonzero solutions. Weak answers show no awareness that x=y=z=0 was guaranteed in advance.",
+      "excellent_answer": "5/5: notes that the zero vector always solves a homogeneous system so 'no solution' was impossible a priori, reports finding only the trivial solution, and justifies it by three pivots / nonzero determinant mod 11; may add that over a finite field a nontrivial solution would have produced exactly 11 solutions (a full line), so 'infinitely many' is not the right phrase there. A 3/5 states the trivial solution as the answer without recognising the homogeneous structure.",
+      "bad_versions_to_avoid": "Do not require them to recompute the determinant mod 11 on the spot; the point is the structural reasoning about homogeneous systems."
+    },
+    {
+      "id": "q15",
+      "files": ["ex3.md"],
+      "focus": "the handling of scalar division during the elimination in 3(b) over Z_11, where fractions are unavailable",
+      "dimension": "justification",
+      "difficulty": "medium",
+      "anchor": "Exercise 3(b) requires solving the system 'מעל Z_11', so every normalisation step must be an application of a multiplicative inverse in Z_11.",
+      "examiner_notes": "Goal: verify the arithmetic is genuinely modular and understood as such. Ask about one normalisation step in their work: what element was inverted, and what guarantees such an inverse exists. Ownership signal: the student can reproduce or verify the specific inverse they used and knows the guarantee comes from 11 being prime. Weak answers reveal that fractions were computed in Q and reduced mod 11 at the end without noticing that this needs justification.",
+      "excellent_answer": "5/5: names the element inverted, verifies the product is 1 mod 11, and states the general principle that every nonzero element of Z_p is invertible so any nonzero pivot may be normalised; may add that reducing a rational fraction mod 11 is valid exactly when the denominator is nonzero mod 11. A 3/5 identifies the inverse used but cannot explain why one always exists.",
+      "bad_versions_to_avoid": "Avoid a drill on inverse tables mod 11; anchor the question in one concrete step of the student's own elimination."
+    },
+    {
+      "id": "q16",
+      "files": ["ex3.md"],
+      "focus": "the dependence of the 3(b) elimination on the primality of the modulus",
+      "dimension": "counterfactual_mutation",
+      "difficulty": "hard",
+      "anchor": "Exercise 3(b) fixes the field Z_11 ('מעל Z_11') while exercise 1(b) works over Z_8, so the assignment itself makes the prime/composite distinction a required consideration.",
+      "examiner_notes": "Goal: probe whether the student sees which single property of Z_11 their whole method rests on. Ask what would be the first step of their own elimination to fail if the same coefficients were read modulo a composite number, and what could then happen to the solution set of a homogeneous system. Strong answers point at a specific normalisation or cancellation step and note that a homogeneous system could acquire nontrivial solutions even with 'nonzero determinant'.",
+      "excellent_answer": "5/5: identifies a specific pivot normalisation in their work that would be illegal (pivot a zero divisor), explains that row operations require invertible scalars, and observes that over a composite modulus a nonzero determinant no longer guarantees uniqueness — a nontrivial solution can exist. A 3/5 says only 'we could not divide' without discussing the consequence for the solution set.",
+      "bad_versions_to_avoid": "Do not demand a full theory of modules over Z_n; keep it to identifying the first failing step and the qualitative consequence."
+    },
+    {
+      "id": "q17",
+      "files": ["ex3.md"],
+      "focus": "the choice of which variables are taken as parameters in the solution set of 3(c) over C",
+      "dimension": "method_choice",
+      "difficulty": "medium",
+      "anchor": "Exercise 3(c) gives two equations in four unknowns over C and asks 'פתרו', so the student alone decides which unknowns become free parameters and how the set is presented.",
+      "examiner_notes": "Goal: test understanding that the parametrisation is a choice, not a fact about the system. Ask why those particular variables were made free and whether a different choice would describe the same set. Ownership signal: the student links their choice to the pivot columns they produced and can say what a different pivot choice would have changed. Weak answers imply the free variables were dictated by the problem.",
+      "excellent_answer": "5/5: explains that the pivot columns determine which variables are solved for, that any two independent columns could have served (given nonzero pivots), and that different choices give different-looking but equal solution sets; connects the number of parameters (2) to 4 unknowns minus 2 pivots. A 3/5 states which variables were free without recognising the freedom of the choice or the count.",
+      "bad_versions_to_avoid": "Do not ask them to redo the parametrisation with different free variables in full; a description of what would change suffices."
+    },
+    {
+      "id": "q18",
+      "files": ["ex3.md"],
+      "focus": "the claim in 3(c) that the parametric family produced is the entire solution set rather than a family of solutions",
+      "dimension": "claim_direction",
+      "difficulty": "hard",
+      "anchor": "Exercise 3(c) asks to solve the system ('פתרו את מערכות המשוואות הבאות'), i.e. to describe all solutions, so the two inclusions (every listed vector solves it; every solution is listed) are both required.",
+      "examiner_notes": "Goal: probe whether the student sees their answer as a set equality with two directions, and which direction their derivation actually establishes. Ask how they know nothing outside their family solves the system. Ownership signal: appeal to the reversibility of the elimination steps or to substitution back plus the pivot argument. Weak answers only verify that their vectors satisfy the equations, which is the easy inclusion.",
+      "excellent_answer": "5/5: distinguishes the two inclusions, states that elimination via invertible elementary operations produces an equivalent system, hence the derived parametric description captures every solution, and that plugging back in confirms the other inclusion; may note the number of parameters equals the number of non-pivot columns so nothing is missing. A 3/5 verifies one direction and asserts the other.",
+      "bad_versions_to_avoid": "Do not phrase this as a request for an abstract lecture on solution spaces; keep it about their own derived family in 3(c)."
+    },
+    {
+      "id": "q19",
+      "files": ["ex3.md"],
+      "focus": "the arithmetic with the complex pivot i in 3(c) — dividing an equation by i or eliminating it",
+      "dimension": "justification",
+      "difficulty": "easy",
+      "anchor": "Exercise 3(c) has leading coefficient i in the first equation and is to be solved 'מעל C', so complex-scalar row operations are required.",
+      "examiner_notes": "Goal: confirm the complex arithmetic is the student's own and understood. Ask about the specific scalar they multiplied a row by and why it is legitimate. Ownership signal: they can state i⁻¹ = -i and verify it, and can recall or recompute one of the resulting coefficients. Weak answers show the coefficients were copied without the ability to reproduce a single product.",
+      "excellent_answer": "5/5: names the scalar used, verifies i·(-i)=1, notes every nonzero complex number is invertible so any nonzero pivot is usable, and can recompute one resulting entry correctly. A 3/5 knows the row was scaled but cannot state or verify the inverse.",
+      "bad_versions_to_avoid": "Do not turn it into an extended complex-arithmetic computation; one scalar and one verification is enough."
+    },
+    {
+      "id": "q20",
+      "files": ["ex4.md"],
+      "focus": "the point in the ex4 elimination where an expression involving a was used as a pivot or divided by",
+      "dimension": "justification",
+      "difficulty": "medium",
+      "anchor": "Exercise 4 asks 'לכל a ∈ R קבעו האם למערכת אין פתרון/יש פתרון יחיד/יש אינסוף פתרונות', which makes every division by an a-dependent expression an obligation to case-split.",
+      "examiner_notes": "Goal: catch the classic error of dividing by a possibly-zero expression in a parametric elimination. Ask which a-dependent quantities they used as pivots and how they ensured the operation was legal for the a's they were treating. Ownership signal: the student can name the exceptional a-values that arose from precisely those expressions and say that those values were then handled separately. Weak answers normalise freely and only later 'check special cases'.",
+      "excellent_answer": "5/5: identifies the specific a-dependent pivot(s) in their work, states that scaling a row by such an expression is legal only when it is nonzero, lists the resulting exceptional values, and explains that the generic branch of the argument is valid only away from them (mentioning the values -5, 5, 7 or those arising from their own route). A 3/5 acknowledges the need for a case split but cannot say which step generated which exceptional value.",
+      "bad_versions_to_avoid": "Do not demand the full classification answer here; the focus is the legality of one parametric operation."
+    },
+    {
+      "id": "q21",
+      "files": ["ex4.md"],
+      "focus": "the treatment of the exceptional values of a in ex4, where the classification must decide between no solution and infinitely many",
+      "dimension": "case_completeness",
+      "difficulty": "hard",
+      "anchor": "Exercise 4 requires a verdict for EVERY a ∈ R among 'אין פתרון/יש פתרון יחיד/יש אינסוף פתרונות', so each degenerate a needs its own consistency check.",
+      "examiner_notes": "Goal: test whether the student knows that a vanishing pivot/determinant does not by itself decide between inconsistency and infinitely many solutions, and that each exceptional a needs a separate substitution and consistency check. Ask how they decided the verdict for one exceptional value, and whether their argument covers all of them. Ownership signal: they can describe the concrete degenerate row that appeared (a contradictory 0=c row versus a redundant row) for the value in question.",
+      "excellent_answer": "5/5: explains that determinant zero only rules out uniqueness, then describes substituting each exceptional value and reading off either a contradictory row (no solution) or a redundant row leaving a free variable (infinitely many); reports verdicts consistent with their own computation (e.g. a=7 and a=-5 inconsistent, a=5 infinitely many) and confirms the list of exceptional values is complete. A 3/5 gives verdicts but treats 'determinant zero' as if it meant one fixed outcome, or checks only some exceptional values.",
+      "bad_versions_to_avoid": "Do not require the exact numeric solution for the generic case; and do not assume the student used determinants — adapt to their route."
+    },
+    {
+      "id": "q22",
+      "files": ["ex4.md"],
+      "focus": "the degenerate value of a in ex4 for which the x-coefficients vanish in two of the three equations",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "Exercise 4's coefficients 10+2a and 15+3a share the factor (5+a), and the exercise demands a verdict 'לכל a ∈ R', so this degeneracy must be handled.",
+      "examiner_notes": "Goal: probe the most structurally interesting case, where the variable x disappears from most equations. Ask what the system looks like at that value of a and what verdict follows. Ownership signal: the student notices the common factor in the two x-coefficients and can describe the shape of the resulting system (x absent, so either a contradiction among the remaining equations or a free x). Weak answers assume that a missing variable automatically means infinitely many solutions.",
+      "excellent_answer": "5/5: identifies a=-5, notes both x-coefficients vanish (common factor 5+a) so x is unconstrained, but then checks the remaining equations in y,z and finds them inconsistent, concluding no solution; explicitly rejects the tempting inference 'free variable ⇒ infinitely many'. A 3/5 spots the value and the disappearance of x but does not carry out or report the consistency check.",
+      "bad_versions_to_avoid": "Do not reveal the verdict in the question; and do not ask for the whole classification, only this case."
+    },
+    {
+      "id": "q23",
+      "files": ["ex4.md"],
+      "focus": "the overall strategy chosen for ex4 — determinant-first with special cases versus direct elimination with branching",
+      "dimension": "method_choice",
+      "difficulty": "medium",
+      "anchor": "Exercise 4 states only the goal ('לכל a ∈ R קבעו...'), leaving the method entirely open.",
+      "examiner_notes": "Goal: elicit a real justification of strategy and awareness of what each route does and does not deliver. Ask why they chose their route and what the alternative would have required. Strong answers note that a determinant argument cleanly isolates the exceptional a's but says nothing about which degenerate case is inconsistent, whereas elimination gives the solution as well but risks illegal divisions. Weak answers describe only the mechanics they performed.",
+      "excellent_answer": "5/5: describes their route, names the alternative, and identifies the genuine tradeoff — determinant finds the exceptional set fast (and factorises nicely here) but must be followed by substitution for each such a; elimination is self-contained but requires careful branching to avoid dividing by zero. A 3/5 justifies their choice by familiarity only.",
+      "bad_versions_to_avoid": "Do not penalise either route; avoid presupposing that determinants were used."
+    },
+    {
+      "id": "q24",
+      "files": ["ex5.md"],
+      "focus": "the origin of the exceptional values of a in the analysis of the symmetric system in ex5 over R",
+      "dimension": "justification",
+      "difficulty": "medium",
+      "anchor": "Exercise 5(a) requires 'לכל a ∈ F קבעו האם למערכת... אין פתרון/יש פתרון יחיד/יש אינסוף פתרונות' for F=R, so the exceptional values and their source must be justified.",
+      "examiner_notes": "Goal: check that the exceptional values came out of the student's own computation rather than being recalled. Ask which step of their work produced each exceptional value and why the two behave differently. Ownership signal: they can point to the specific vanishing pivot or factor and describe the resulting shape of the system (three identical equations versus a contradictory row). Listen for whether they can explain the asymmetry between the two values.",
+      "excellent_answer": "5/5: identifies a=1 and a=-2 with the step that produced each (a factor (a-1) and (a+2), e.g. from the determinant (a-1)²(a+2) or from a pivot), and explains the different verdicts: at a=1 all three equations coincide, giving a two-parameter family; at a=-2 summing the equations yields 0=3, so no solution. A 3/5 lists the values and verdicts but cannot tie them to the step that produced them.",
+      "bad_versions_to_avoid": "Do not ask for a determinant expansion on the spot; and do not presuppose the determinant route."
+    },
+    {
+      "id": "q25",
+      "files": ["ex5.md"],
+      "focus": "the degenerate case a=1 of the ex5 system, where the three equations collapse to one",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "Exercise 5 asks for a verdict for every a, and at a=1 the given system x+y+az=1, x+ay+z=1, ax+y+z=1 becomes three copies of one equation, so this case must be treated.",
+      "examiner_notes": "Goal: probe understanding of what maximal degeneracy does to the solution set. Ask what happens to their reduced system at this value and how many free parameters remain. Ownership signal: the student says two free variables (not one) and can describe the solution set concretely. Weak answers just say 'infinitely many' with no count of parameters.",
+      "excellent_answer": "5/5: notes that at a=1 all three rows become x+y+z=1, so the reduced system has one pivot and two free variables, and describes the solution set as a plane (in R³) with an explicit parametrisation; contrasts it with the single free parameter one would get from a rank-2 degeneracy. A 3/5 says 'infinitely many solutions' correctly but cannot state the number of parameters.",
+      "bad_versions_to_avoid": "Do not merge this with the a=-2 case in the same question; keep one degenerate value in focus."
+    },
+    {
+      "id": "q26",
+      "files": ["ex5.md"],
+      "focus": "the way the ex5 analysis changes over Z_3, where the two exceptional values of a coincide",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "Exercise 5(a)(ii) requires the same classification for 'F = Z_3', which forces the student to reconsider the exceptional values in a field of characteristic 3.",
+      "examiner_notes": "Goal: test whether the student genuinely redid the analysis over Z_3 rather than copying the real answer. Ask how the list of exceptional values changes and why. Ownership signal: recognising -2 ≡ 1 (mod 3) so the two exceptional values merge, and then deciding which verdict survives at a=1 in Z_3. Weak answers keep two separate special values or report 'no solution' at a=1 out of inertia from the real case.",
+      "excellent_answer": "5/5: observes that in Z_3 we have -2=1, so only a=1 is exceptional, checks a=1 there directly (all equations become x+y+z=1, which is consistent and has many solutions), and confirms a=0 and a=2 give unique solutions; may note that the sum-of-equations obstruction 0=3 disappears because 3=0 in Z_3. A 3/5 notices the collapse but does not re-verify the verdict at a=1 or misses that only three values of a exist.",
+      "bad_versions_to_avoid": "Do not ask for a general characteristic-p theory; keep it to the concrete collapse and the re-check at the merged value."
+    },
+    {
+      "id": "q27",
+      "files": ["ex5.md"],
+      "focus": "the phrasing of the solution count for the degenerate case of ex5 over the finite field Z_3",
+      "dimension": "claim_direction",
+      "difficulty": "medium",
+      "anchor": "Exercise 5(a) offers only the three verdicts 'אין פתרון/יש פתרון יחיד/יש אינסוף פתרונות' but part (ii) sets F = Z_3, so the student must reconcile the wording with a finite field.",
+      "examiner_notes": "Goal: probe whether the student noticed that 'infinitely many' is literally false over a finite field and what the correct statement is. Ask what their verdict for the degenerate case over Z_3 really asserts, and whether they can quantify it. Ownership signal: an explicit count of solutions, or a clear statement 'more than one solution / a whole line-or-plane of solutions with parameters ranging over Z_3'. Weak answers repeat 'infinitely many' without noticing the tension.",
+      "excellent_answer": "5/5: states that over Z_3 the solution set is finite, so the right verdict is 'more than one solution', and quantifies it — with two free parameters over Z_3 the count is 3² = 9 solutions; connects this to the number of free variables. A 3/5 recognises the wording is loose but gives no count or reasoning about parameters.",
+      "bad_versions_to_avoid": "Do not present it as a gotcha about terminology only; the substance is the link between the number of free parameters and the number of solutions over a finite field."
+    },
+    {
+      "id": "q28",
+      "files": ["ex5.md"],
+      "focus": "the exceptional values of a in ex5 under a change of the underlying finite field, e.g. Z_5 instead of Z_3",
+      "dimension": "counterfactual_mutation",
+      "difficulty": "hard",
+      "anchor": "Exercise 5 requires the classification over two different fields (R and Z_3) for the same system, making the field-dependence of the exceptional set an object of the exercise.",
+      "examiner_notes": "Goal: test whether the student's Z_3 conclusion was structural or accidental. Change only the field (to Z_5, say) and ask which exceptional values of a appear and whether the verdicts match the real case or the Z_3 case. A strong student re-derives from their own factored condition rather than guessing. Keep the change to the field only.",
+      "excellent_answer": "5/5: reuses their factored degeneracy condition, computes -2 ≡ 3 (mod 5) so a=1 and a=3 are distinct exceptional values, and assigns the verdicts: at a=1 several solutions, at a=3 the sum of equations gives 0=3 ≠ 0 in Z_5, so no solution — i.e. the pattern matches R rather than Z_3. A 3/5 sees that the values separate again but cannot decide the verdict at the second value.",
+      "bad_versions_to_avoid": "Do not choose a modulus where extra subtleties arise (e.g. Z_2, where 3=1 and the arithmetic of the system changes more drastically) unless the student is strong; and do not ask for a general-p answer."
+    },
+    {
+      "id": "q29",
+      "files": ["ex6.md"],
+      "focus": "the invariant used in 6(a) to conclude that the two given matrices are NOT row equivalent",
+      "dimension": "justification",
+      "difficulty": "medium",
+      "anchor": "Exercise 6 asks 'האם המטריצות הבאות שקולות שורה? נמקו' with the given definition via elementary row operations, so a negative answer requires a justified invariant.",
+      "examiner_notes": "Goal: check the student knows that non-equivalence must be certified by a quantity preserved under every elementary operation. Ask what they computed and why that quantity cannot change under row operations. Ownership signal: they can state the invariant (reduced echelon form, row space, or rank) and explain the preservation property; a very strong student will note that here the two matrices have the SAME rank, so rank alone is insufficient and the finer invariant is needed. Weak answers rely on rank equality or on a failed search for operations.",
+      "excellent_answer": "5/5: names a genuine invariant, explains why elementary operations preserve it (each operation is invertible and does not change the row space), reports the two different reduced forms/row spaces, and explicitly recognises that in this pair the ranks are equal (both 2), so rank alone could not have settled it. A 3/5 gives the correct conclusion with a correct RREF computation but no argument that the invariant is preserved, or believes rank was the deciding factor.",
+      "bad_versions_to_avoid": "Do not ask for the numerical RREF entries as a memory test; the substance is why the invariant certifies non-equivalence."
+    },
+    {
+      "id": "q30",
+      "files": ["ex6.md"],
+      "focus": "the logical structure of the positive answer in 6(b), where both matrices are reduced to a common form",
+      "dimension": "claim_direction",
+      "difficulty": "hard",
+      "anchor": "The definition given in exercise 6 is directional — 'ניתן להגיע מ-A ל-B ע\"י פעולות שורה אלמנטריות' — so establishing equivalence via a common reduced form needs an extra argument.",
+      "examiner_notes": "Goal: probe whether the student sees that reducing A to C and B to C gives A→C and B→C, not directly A→B, and knows what closes the gap. Ask how their argument produces a sequence of operations from A to B. Ownership signal: appeal to invertibility of each elementary operation (so C→B is available) and to composing the two chains. Weak answers assert 'both equal I so they are equivalent' with no reversibility step.",
+      "excellent_answer": "5/5: states that each elementary row operation has an elementary inverse, so B→C can be reversed to C→B, and the concatenation A→C→B exhibits the required sequence; may also note this is exactly why row equivalence is symmetric and transitive, and identify their common form (the identity, since both matrices are invertible). A 3/5 gets the conclusion and the common form right but does not justify the reversal.",
+      "bad_versions_to_avoid": "Do not ask for the explicit list of operations from A to B; the point is the reversibility/transitivity argument."
+    },
+    {
+      "id": "q31",
+      "files": ["ex6.md"],
+      "focus": "the sensitivity of the 6(b) verdict to a single entry of the given matrices",
+      "dimension": "counterfactual_mutation",
+      "difficulty": "medium",
+      "anchor": "Exercise 6 gives in (b) the matrix B with bottom-right entry 10 while in (a) a matrix with the analogous entry 9 appears, and asks for a justified verdict in each case, so the effect of that entry is squarely within the exercise.",
+      "examiner_notes": "Goal: test whether the student's verdict rests on a computed property rather than on appearances. Change the bottom-right entry of B in 6(b) from 10 to 9 and ask whether the answer changes and why, referring to whatever criterion they used. Ownership signal: they immediately connect the entry to the determinant / rank of that matrix and see that the pair then fails their criterion. Weak answers guess or claim the change is immaterial because the matrices 'look the same'.",
+      "excellent_answer": "5/5: recognises that the altered matrix becomes singular (rank 2) while the other matrix stays invertible (rank 3), and that rank is preserved by row operations, so the pair would no longer be row equivalent; identifies the exact step of their own argument (invertibility / reduction to I) that breaks. A 3/5 says the answer would change but justifies it only by 'the determinant becomes 0' without the invariance argument.",
+      "bad_versions_to_avoid": "Do not require an exact determinant value under time pressure; a rank/singularity argument is enough. Avoid mutations that change more than one entry."
+    },
+    {
+      "id": "q32",
+      "files": ["ex6.md"],
+      "focus": "the choice of criterion in 6(b) — invertibility/determinant versus explicit reduction of both matrices",
+      "dimension": "method_choice",
+      "difficulty": "medium",
+      "anchor": "Exercise 6 says only 'האם המטריצות הבאות שקולות שורה? נמקו', leaving the criterion to the student.",
+      "examiner_notes": "Goal: elicit a justification of the criterion and awareness of its scope. Ask why their criterion decides the question and what they would have done had it been inconclusive. Strong answers note that for square matrices invertibility gives a very short argument (both reduce to I), but that this shortcut is unavailable for singular or non-square matrices, where a full reduced form comparison is needed — exactly the situation in part (a). Weak answers describe only the computation performed.",
+      "excellent_answer": "5/5: explains their criterion and its justification, and articulates the tradeoff: the determinant/invertibility route is fast but only settles the case where both matrices are nonsingular of the same size; the reduced-form route always works and is what part (a) demanded. A 3/5 justifies their route but cannot say when it would fail to decide.",
+      "bad_versions_to_avoid": "Do not presuppose which route the student took; avoid asking for a general theorem statement not covered by the assignment."
+    },
+    {
+      "id": "q33",
+      "files": ["ex6.md"],
+      "focus": "the standard of proof required for the NEGATIVE answer in 6(a), as opposed to trying operations and failing",
+      "dimension": "claim_direction",
+      "difficulty": "medium",
+      "anchor": "Exercise 6 requires justification ('נמקו') for a question about the existence of a sequence of elementary row operations, so a negative answer is a non-existence claim.",
+      "examiner_notes": "Goal: probe whether the student understands the asymmetry between proving equivalence (exhibit a chain) and disproving it (rule out all chains). Ask why their argument establishes that no sequence of operations whatsoever can work. Ownership signal: the student articulates the universal quantifier and explains that an invariant argument covers all possible sequences at once. Weak answers describe having tried operations without success.",
+      "excellent_answer": "5/5: states that the negative claim quantifies over all finite sequences of elementary operations, so it needs a quantity unchanged by every single operation; explains that since their invariant differs between A and B no sequence can exist, and contrasts this with the positive case where one explicit chain suffices. A 3/5 gives a correct invariant computation but describes the logic as 'I couldn't find operations that work'.",
+      "bad_versions_to_avoid": "Do not make this a logic-terminology quiz; keep it grounded in why their specific 6(a) argument is conclusive."
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# What NOT to upload to Cloud Build. Keeps secrets/PII out of the build context and makes
+# uploads fast. None of these are needed by any Docker build (deps are installed in-image).
+.git/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+**/*.db
+# secrets — never ship to the builder
+backend/.env
+backend/keys/
+**/*.pem
+# model cache is built inside the item-analysis image, never uploaded
+backend/hf_cache/
+# PII / local-only
+private-data/
+scratchpad/
+# frontend build output (regenerated in-image)
+frontend/exam-frontend/.next/
+
+# course sample material — 11 MB of past exam scans, test data only.
+# The rendered prompts under courses/<id>/rendered/ ARE uploaded and needed.
+courses/**/past_examples/
+courses/_poc/

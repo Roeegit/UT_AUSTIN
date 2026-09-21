@@ -1,0 +1,314 @@
+[
+  {
+    "id": "q01",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the modular row-reduction step in exercise 1(a) where the student chooses a pivot operation or rescales a row in Z_7",
+    "dimension": "technical_execution",
+    "difficulty": "easy",
+    "anchor": "Exercise 1(a) explicitly asks to invert the given matrix in Z_7 using Gauss-Jordan elimination.",
+    "examiner_notes": "Probe whether the student can reproduce one small modular row operation from their own reduction and explain the arithmetic modulo 7. Ownership is visible in knowing why that operation was chosen and how it changes both sides of the augmented matrix. A strong answer is accurate and keeps the augmented identity block synchronized.",
+    "excellent_answer": "A top answer correctly performs the selected row operation modulo 7, including modular inverses/signs, applies it to the whole augmented row, and explains its role in creating or clearing a pivot. A 5/5 answer connects the local arithmetic to the goal of reducing the left block to I; a 3/5 answer may compute correctly but give little explanation.",
+    "bad_versions_to_avoid": "Do not ask for a long full inversion from scratch. Do not turn this into a definition-only question about fields or modular arithmetic.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q02",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the conclusion in exercise 1(a) that the right block of the augmented matrix is the inverse after the left block becomes I",
+    "dimension": "theory_technique_connection",
+    "difficulty": "medium",
+    "anchor": "Exercise 1(a) requires inversion by Gauss-Jordan elimination, so the student must interpret the augmented reduction as producing an inverse.",
+    "examiner_notes": "Probe why row-reducing [A|I] to [I|C] licenses the conclusion C=A^{-1}, using elementary matrices/invertibility rather than advanced theory. Strong ownership shows the student understands the method, not just the mechanics.",
+    "excellent_answer": "A top answer explains that each row operation corresponds to left multiplication by an invertible elementary matrix; the accumulated product E satisfies EA=I, while the same operations send I to E, so E=C and C is an inverse of A. A merely adequate answer states the rule without explaining why it works.",
+    "bad_versions_to_avoid": "Avoid invoking determinants, linear transformations, or vector-space language. Do not ask merely 'what do you read off?'",
+    "conflicts_with": []
+  },
+  {
+    "id": "q03",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "a row-operation choice in the Gauss-Jordan reduction of the real 3x3 matrix in exercise 1(b)",
+    "dimension": "method_choice",
+    "difficulty": "medium",
+    "anchor": "Exercise 1(b) explicitly requires Gauss-Jordan inversion of the given real matrix.",
+    "examiner_notes": "Use an actual step from the student's submitted reduction where another legal elimination order was possible. Probe why their choice was convenient and whether a different choice would still preserve correctness. The signal is understanding of elimination strategy rather than memorized arithmetic.",
+    "excellent_answer": "A top answer identifies what their chosen operation accomplishes, describes at least one valid alternative, and explains that any sequence of legal elementary row operations leading to I is acceptable. It also notes practical differences such as avoiding fractions or simplifying later entries. A 3/5 answer only says the alternative also works.",
+    "bad_versions_to_avoid": "Use this dimension only if the submission shows a genuine choice point. Do not demand a uniquely optimal sequence.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q04",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the computation of a generic entry of AB in exercise 2 using the special forms of A and B",
+    "dimension": "technical_execution",
+    "difficulty": "medium",
+    "anchor": "Exercise 2 defines A and B entrywise and asks to prove that B is the inverse of A.",
+    "examiner_notes": "Have the student explain one diagonal and one off-diagonal behavior through the row-by-column formula, without expanding an entire n by n product. Ownership is shown by controlling the index cases that make the cancellation work.",
+    "excellent_answer": "A top answer writes or explains (AB)_{ij} as the relevant sum and uses the fact that each column of B has at most the diagonal 1 and the subdiagonal -1 contribution. It correctly obtains 1 when i=j and 0 otherwise, with boundary cases handled. A 3/5 answer sees the cancellation but is imprecise about indices.",
+    "bad_versions_to_avoid": "Do not reduce this to multiplying a small numeric example only. Do not use determinants.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q05",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the step in exercise 2 where proving one product equals I is used to conclude that B is the inverse of A",
+    "dimension": "justification_and_formal_reasoning",
+    "difficulty": "hard",
+    "anchor": "Exercise 2 asks to prove that B is the inverse of A.",
+    "examiner_notes": "Probe the student's exact logical route. If they computed only AB=I, ask them to justify why that is enough in this square-matrix setting using material available in the course, or alternatively to explain how their solution also establishes BA=I. The goal is precision about what was actually proved.",
+    "excellent_answer": "A top answer either shows both AB=I and BA=I directly from the structures, or gives a valid square-matrix/invertibility argument available within the taught material that a one-sided inverse is enough. It distinguishes the definition of inverse from a theorem that permits a one-sided check. A 3/5 answer asserts the conclusion with only vague justification.",
+    "bad_versions_to_avoid": "Do not silently assume a theorem not taught. Tailor the probe to the route in the student's submission.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q06",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the counterexample or proof choice for the claim in exercise 3(a) that every elementary matrix satisfies A^2=I",
+    "dimension": "conceptual_understanding",
+    "difficulty": "easy",
+    "anchor": "Exercise 3(a) explicitly asks to prove or disprove: if A is elementary then A^2=I.",
+    "examiner_notes": "Probe whether the student distinguishes the three elementary-row-operation types and understands which corresponding matrices are involutions and which need not be. Strong answers explain the mechanism behind their example, not just its entries.",
+    "excellent_answer": "A top answer identifies that row swaps square to I, while a row-scaling matrix generally squares to a different scaling and a row-addition matrix generally doubles the added multiple rather than undoing it. It then connects this to the submitted proof/counterexample. A 3/5 answer provides a correct counterexample without this structural understanding.",
+    "bad_versions_to_avoid": "Do not ask for a list of elementary matrix definitions from memory. Keep the discussion anchored to the student's chosen example or argument.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q07",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the example in exercise 3(b) of a matrix satisfying A^2=I but not being elementary",
+    "dimension": "justification_and_formal_reasoning",
+    "difficulty": "medium",
+    "anchor": "Exercise 3(b) asks to prove or disprove: if A^2=I then A is elementary.",
+    "examiner_notes": "Probe both obligations in a counterexample: verify A^2=I and verify the matrix is not elementary. Ownership is especially visible in the second point, which students often leave implicit.",
+    "excellent_answer": "A top answer checks the square explicitly or structurally and then compares the matrix with the allowed forms of a single elementary row operation, explaining why none produces it. A 5/5 answer is precise about dimension/field edge cases if relevant; a 3/5 answer verifies only A^2=I.",
+    "bad_versions_to_avoid": "Do not accept 'it does not look elementary' as the target reasoning. Avoid advanced classification of involutions.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q08",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the construction in exercise 3(c) that turns non-invertibility of A into a nonzero B satisfying AB=0",
+    "dimension": "theory_technique_connection",
+    "difficulty": "hard",
+    "anchor": "Exercise 3(c) asks whether non-invertibility of A implies the existence of B≠0 with AB=0.",
+    "examiner_notes": "Probe how the student passes from a homogeneous system to a matrix product. The allowed route should stay within systems, row reduction, columns, and invertibility. Ownership is shown by explaining why B can be made nonzero and why every column of AB vanishes.",
+    "excellent_answer": "A top answer explains that non-invertibility yields a nonzero solution x of Ax=0 using the course's system/invertibility criteria, then constructs B with x as one column and zero columns elsewhere (or another equivalent construction). It verifies B≠0 and that AB has zero columns. A 3/5 answer gives the construction but cannot justify the first implication.",
+    "bad_versions_to_avoid": "Do not phrase the expected answer using null spaces, kernels, rank, dimension, or vector-space terminology, which is outside the supplied scope.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q09",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the inverse-multiplication step in exercise 3(d) deriving B=0 from AB=0 under the temporary assumption that A is invertible",
+    "dimension": "justification_and_formal_reasoning",
+    "difficulty": "easy",
+    "anchor": "Exercise 3(d) asks whether existence of B≠0 with AB=0 implies that A is not invertible.",
+    "examiner_notes": "Probe order of multiplication and why the inverse cancels A. Strong ownership shows the student can write the short chain without commuting A and B.",
+    "excellent_answer": "A top answer left-multiplies AB=0 by A^{-1}, obtaining (A^{-1}A)B=A^{-1}0 and hence B=0, contradicting B≠0. It explicitly respects matrix multiplication order. A 3/5 answer reaches the contradiction but writes an unjustified commutation.",
+    "bad_versions_to_avoid": "Do not make this a generic definition question about invertibility.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q10",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the row-reduction argument in exercise 4(a) showing that the non-invertibility obstruction in A persists in the enlarged matrix B",
+    "dimension": "theory_technique_connection",
+    "difficulty": "medium",
+    "anchor": "Exercise 4(a) asks to prove that if A is not invertible then the displayed (n+1)x(n+1) matrix B is not invertible.",
+    "examiner_notes": "Probe how the student's argument uses the block shape of B: the first n rows contain A followed by a zero last entry. A good ownership signal is being able to explain why row operations exposing non-invertibility of A can be applied to those same rows of B without the last column repairing the obstruction.",
+    "excellent_answer": "A top answer uses an allowed invertibility criterion via row reduction: because A is not invertible, reducing its rows cannot produce n pivots / the identity. Applying the same elementary row operations to the first n rows of B affects their first n entries exactly as in A and leaves their last entry zero. Thus the first n rows of the enlarged matrix retain the corresponding row-reduction obstruction, so B cannot reduce to I and is not invertible. An equivalent correct argument through systems is also acceptable. A 3/5 answer states that the block form makes the result obvious but does not justify why.",
+    "bad_versions_to_avoid": "Do not assume that a nonzero solution x of Ax=0 can always be extended as (x,0) to a solution for B; the last row may not vanish. Do not use determinants.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q11",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the role of b_{n+1} in the necessary-and-sufficient condition of exercise 4(b)",
+    "dimension": "conceptual_understanding",
+    "difficulty": "medium",
+    "anchor": "Exercise 4(b) asks for a necessary and sufficient condition on b_1,...,b_{n+1} such that A is invertible iff B is invertible.",
+    "examiner_notes": "Probe whether the student sees that the last column has zeros except for b_{n+1}, and how that interacts with invertibility once A is invertible. Strong answers separate the influence of b_{n+1} from the other b_i.",
+    "excellent_answer": "A top answer identifies that, when A is invertible, the decisive condition is b_{n+1}≠0; it gives an allowed matrix/system or elementary-operation justification and explains why b_1,...,b_n do not obstruct invertibility. It also uses part (a) for the other direction. A 3/5 answer states the condition without establishing necessity and sufficiency.",
+    "bad_versions_to_avoid": "Do not justify this with a determinant or Schur complement. Do not ask only for the condition as a memorized fact.",
+    "conflicts_with": [
+      "q12"
+    ]
+  },
+  {
+    "id": "q12",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the proof in exercise 4(b) that the stated condition is necessary as well as sufficient",
+    "dimension": "completeness_and_precision",
+    "difficulty": "hard",
+    "anchor": "Exercise 4(b) explicitly asks for a necessary and sufficient condition, so both directions must be justified.",
+    "examiner_notes": "Probe the direction the student's write-up treats more tersely. The examiner should look for whether they can show failure of the condition produces a failure of the equivalence, not merely that the condition works when imposed.",
+    "excellent_answer": "A top answer clearly distinguishes sufficiency from necessity, proves each using invertibility/system arguments, and connects the non-invertible-A case to part (a). A 5/5 answer can explain exactly what goes wrong when b_{n+1}=0 while A is invertible. A 3/5 answer proves only the working case.",
+    "bad_versions_to_avoid": "Do not bundle several unrelated subquestions. Focus on whichever direction is under-justified in the submission.",
+    "conflicts_with": [
+      "q11"
+    ]
+  },
+  {
+    "id": "q13",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the chosen pair of row-addition elementary matrices in exercise 5(a) and why their sum is non-invertible",
+    "dimension": "method_choice",
+    "difficulty": "medium",
+    "anchor": "Exercise 5(a) asks for existence of A,B that are elementary matrices from adding a scalar multiple of one row to another, with A+B non-invertible.",
+    "examiner_notes": "Probe why the student's chosen elementary matrices make the sum easy to analyze and whether the construction relies on a special scalar relation. Ownership shows in being able to reconstruct the idea rather than only the final matrices.",
+    "excellent_answer": "A top answer explains the row-operation form of each elementary matrix, identifies a simple dependence in the equations/rows/columns of A+B that makes it non-invertible, and notes the dimension requirements of the construction if any. A 3/5 answer only repeats that a calculation shows non-invertibility.",
+    "bad_versions_to_avoid": "Do not use determinants as the test. Do not ask for an arbitrary alternative example unless it remains oral-exam sized.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q14",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the construction in exercise 5(b) using two row-swap elementary matrices whose sum is non-invertible",
+    "dimension": "counterfactual_mutation",
+    "difficulty": "medium",
+    "anchor": "Exercise 5(b) asks for an existence example with A and B both row-swap elementary matrices and A+B non-invertible.",
+    "examiner_notes": "Probe the robustness of the student's row-swap example under one small change to one swap, in a dimension where an alternative swap exists. The ownership signal is whether the student can identify the structural reason the original sum is non-invertible and determine whether that reason survives the mutation, rather than guessing by analogy.",
+    "excellent_answer": "A top answer analyzes the modified sum rather than guessing from analogy, identifies which feature of the original construction caused non-invertibility, and determines whether that feature persists. A 5/5 answer distinguishes structural reasoning from accidental numeric coincidence; a 3/5 answer computes without explaining the mechanism.",
+    "bad_versions_to_avoid": "Do not choose a mutation whose answer requires determinants or spectral theory. Avoid dimensions where the requested alternative swap does not exist.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q15",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the use of AB=BA in exercise 5(c) to rewrite the given cubic expression as (A+B)^3",
+    "dimension": "theory_technique_connection",
+    "difficulty": "medium",
+    "anchor": "Exercise 5(c) gives A^3+3A^2B+3AB^2+B^3=I together with AB=BA.",
+    "examiner_notes": "Probe exactly where commutativity is needed in expanding a matrix cube. Strong answers understand that the scalar binomial formula is not automatic for matrices.",
+    "excellent_answer": "A top answer expands (A+B)^3 while preserving order, obtaining mixed terms such as ABA, BA^2, BAB, and B^2A, and then uses AB=BA to combine them into 3A^2B+3AB^2. A 3/5 answer states the binomial formula but cannot identify where commutativity enters.",
+    "bad_versions_to_avoid": "Do not accept an unqualified appeal to the ordinary binomial theorem.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q16",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the deduction in exercise 5(c) that A+B is invertible from (A+B)^3=I",
+    "dimension": "justification_and_formal_reasoning",
+    "difficulty": "easy",
+    "anchor": "Exercise 5(c), after using AB=BA, gives (A+B)^3=I and asks about existence with A+B non-invertible.",
+    "examiner_notes": "Probe whether the student can exhibit an inverse directly. This is short and should expose anyone who relied only on a slogan.",
+    "excellent_answer": "A top answer observes that if C=A+B and C^3=I, then C·C^2=C^2·C=I, so C^{-1}=C^2. It then concludes that A+B cannot be non-invertible. A 3/5 answer says powers equal to I imply invertibility without giving the inverse.",
+    "bad_versions_to_avoid": "Do not bring in eigenvalues or determinants.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q17",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the construction in exercise 6 of the symmetric and antisymmetric parts from A and A^T",
+    "dimension": "technical_execution",
+    "difficulty": "easy",
+    "anchor": "Exercise 6 asks to prove that every real square matrix A can be written A=B+C with B symmetric and C antisymmetric.",
+    "examiner_notes": "Ask the student to verify one of the transpose identities in their decomposition and the recombination A=B+C. Ownership is visible in getting the signs and the factor 1/2 correct.",
+    "excellent_answer": "A top answer uses B=(A+A^T)/2 and C=(A-A^T)/2, checks B^T=B and C^T=-C, and verifies the sum equals A. It also notes that division by 2 is legitimate over R. A 3/5 answer recalls the formulas but makes a sign/algebra slip in the verification.",
+    "bad_versions_to_avoid": "Do not turn this into a rote request to state the formulas only.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q18",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the coefficient 1/2 in the decomposition used in exercise 6",
+    "dimension": "counterfactual_mutation",
+    "difficulty": "hard",
+    "anchor": "Exercise 6 is over R and requires a decomposition into symmetric and antisymmetric parts.",
+    "examiner_notes": "Probe the effect of changing the field to characteristic 2, while staying within field arithmetic and transpose. The ownership signal is whether the student understands both why the coefficient 1/2 is used and how the symmetric/antisymmetric distinction changes, rather than merely repeating the real-field formula.",
+    "excellent_answer": "A top answer explains that the standard construction requires division by 2 and therefore fails in characteristic 2; moreover, in characteristic 2 the conditions C^T=-C and C^T=C coincide, so the usual symmetric/antisymmetric separation changes fundamentally. A 5/5 answer distinguishes failure of this proof from the truth of any modified statement. A 3/5 answer merely says '1/2 does not exist.'",
+    "bad_versions_to_avoid": "Do not invoke vector-space direct sums or dimension arguments. Keep the mutation focused on field arithmetic and transpose.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q19",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the transpose-order reasoning in exercise 7(b) when AB is assumed antisymmetric",
+    "dimension": "justification_and_formal_reasoning",
+    "difficulty": "hard",
+    "anchor": "Exercise 7(b) asks whether AB antisymmetric implies A and B commute, for arbitrary real square A and B.",
+    "examiner_notes": "Probe whether the student notices that no symmetry or antisymmetry hypotheses are imposed on A and B individually. A common error is to replace A^T or B^T by ±A or ±B without justification. Use the student's actual proof/counterexample.",
+    "excellent_answer": "A top answer starts only from (AB)^T=-AB, hence B^TA^T=-AB, and recognizes that this alone does not imply AB=BA. If disproving, it supplies and verifies a concrete counterexample within small matrices. A 5/5 answer explicitly diagnoses why the tempting transpose argument fails; a 3/5 answer only gives an example.",
+    "bad_versions_to_avoid": "Do not accidentally add assumptions that A or B are themselves symmetric/antisymmetric. Avoid determinant-based counterexamples.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q20",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the forward direction in exercise 7(c): commuting symmetric matrices have a symmetric product",
+    "dimension": "theory_technique_connection",
+    "difficulty": "medium",
+    "anchor": "Exercise 7(c) asks to prove A and B commute iff AB is symmetric, under the hypothesis that A and B are symmetric.",
+    "examiner_notes": "Probe how the product-transpose rule and commutativity interact. The student should not skip the order reversal.",
+    "excellent_answer": "A top answer computes (AB)^T=B^TA^T=BA and then uses symmetry of A,B and AB=BA to get (AB)^T=AB. A 5/5 answer clearly identifies the separate role of each hypothesis. A 3/5 answer compresses the argument so much that one hypothesis is effectively hidden.",
+    "bad_versions_to_avoid": "Do not accept '(AB)^T=A^TB^T'—the order reversal is central.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q21",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the reverse direction in exercise 7(c): symmetry of AB forces A and B to commute when A and B are symmetric",
+    "dimension": "completeness_and_precision",
+    "difficulty": "medium",
+    "anchor": "Exercise 7(c) asks for an equivalence, so the reverse implication must be proved in addition to the forward implication.",
+    "examiner_notes": "Probe the direction students often omit. Ownership is visible in starting from the correct assumption (AB)^T=AB and deriving BA=AB without assuming the desired conclusion.",
+    "excellent_answer": "A top answer uses AB=(AB)^T=B^TA^T=BA because A and B are symmetric. It explicitly states that this is the reverse implication and does not reuse commutativity as an assumption. A 3/5 answer gives the right equations but muddles which direction is being proved.",
+    "bad_versions_to_avoid": "Do not ask both directions again; focus narrowly on the reverse implication.",
+    "conflicts_with": []
+  },
+  {
+    "id": "q22",
+    "files": [
+      "hw3.md"
+    ],
+    "focus": "the necessity of the individual symmetry assumptions in exercise 7(c)",
+    "dimension": "counterfactual_mutation",
+    "difficulty": "hard",
+    "anchor": "Exercise 7(c) explicitly assumes A and B are symmetric before asserting the equivalence between commutativity and symmetry of AB.",
+    "examiner_notes": "Remove one of the individual symmetry assumptions and ask which step of the student's proof fails first. The goal is not to demand a full classification, but to test whether the student knows where each hypothesis is used.",
+    "excellent_answer": "A top answer points to (AB)^T=B^TA^T and explains that replacing B^T by B and A^T by A requires the individual symmetry assumptions. It can give a small counterexample or explain why the original derivation no longer goes through. A 5/5 answer separates 'proof fails' from 'statement is false' and, if claiming false, supports it concretely. A 3/5 answer only says the assumptions are needed.",
+    "bad_versions_to_avoid": "Do not ask for advanced simultaneous diagonalization. Keep the mutation within transpose, multiplication, and symmetry.",
+    "conflicts_with": []
+  }
+]

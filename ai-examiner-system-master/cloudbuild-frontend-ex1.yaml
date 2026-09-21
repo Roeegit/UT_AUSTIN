@@ -1,0 +1,119 @@
+steps:
+  # Step 1: Build the Docker image with QA mode off
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --build-arg
+      - NEXT_PUBLIC_QA_MODE=false
+      - --build-arg
+      - NEXT_PUBLIC_EXAM_DURATION_SECONDS=960
+      - -t
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+      - ./frontend/exam-frontend
+
+  # Step 2: Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+
+  # Step 3: Deploy exam-frontend-la — me-west1
+  #
+  # Linear Algebra runs this same image; only BACKEND_URL differs, and that lives on the
+  # service. It is deployed from here rather than cloudbuild.yaml because this is the trigger
+  # that fires on frontend/** — cloudbuild.yaml fires only on backend/**, so a frontend-only
+  # commit would never redeploy it.
+  #
+  # First, so a lost race on the contended ex1/admin steps below cannot skip it: steps are
+  # sequential and a failure skips the rest of the file. exam-frontend-ex1 and exam-admin are
+  # also deployed by cloudbuild.yaml; exam-frontend-la has no such second path.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-frontend-la
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+      - --region=me-west1
+
+  # Step 4: Deploy exam-admin-la — me-west1
+  # Same image again, ADMIN_ENABLED=true against the Linear Algebra backend. Its env lives on
+  # the service (BACKEND_URL, ADMIN_ENABLED), so --image alone is enough here.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-admin-la
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+      - --region=me-west1
+
+  # Step 5: Deploy to Cloud Run (separate service for ex1)
+  # BACKEND_URL must be filled in after deploying the backend (see deployment instructions)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-frontend-ex1
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+      - --region=me-west1
+      - --allow-unauthenticated
+      - --set-env-vars=BACKEND_URL=https://ai-exam-backend-ex1-dx6rlviobq-zf.a.run.app,QA_MODE=false,EXAM_DURATION_SECONDS=960
+      - --remove-secrets=GOOGLE_SA_KEY_JSON
+      - --memory=512Mi
+      - --timeout=60
+      - --concurrency=80
+
+  # Step 4: Deploy exam-frontend-ex1 — europe-west1
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-frontend-ex1
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+      - --region=europe-west1
+      - --allow-unauthenticated
+      - --set-env-vars=BACKEND_URL=https://ai-exam-backend-ex1-1023741330092.europe-west1.run.app,QA_MODE=false,EXAM_DURATION_SECONDS=960
+      - --remove-secrets=GOOGLE_SA_KEY_JSON
+      - --memory=512Mi
+      - --timeout=60
+      - --concurrency=80
+
+  # Steps 5-6: exam-admin runs this same exam-frontend-ex1 image, differing only by
+  # ADMIN_ENABLED, so it is deployed from here — the pipeline that actually builds that
+  # image. It used to also be deployed by cloudbuild-frontend-prod.yaml from the unrelated
+  # exam-frontend image; both triggers fire on every master push, so the two raced and
+  # exam-admin flipped between images depending on which finished last. That duplicate
+  # has been removed. Keep these steps in sync with cloudbuild.yaml steps 9-10.
+
+  # Step 5: Deploy exam-admin — me-west1
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-admin
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+      - --region=me-west1
+      - --allow-unauthenticated
+      - --set-env-vars=BACKEND_URL=https://ai-exam-backend-ex1-dx6rlviobq-zf.a.run.app,ADMIN_ENABLED=true,EXAM_DURATION_SECONDS=960
+      - --memory=512Mi
+      - --timeout=60
+      - --concurrency=20
+
+  # Step 6: Deploy exam-admin — europe-west1
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-admin
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+      - --region=europe-west1
+      - --allow-unauthenticated
+      - --set-env-vars=BACKEND_URL=https://ai-exam-backend-ex1-1023741330092.europe-west1.run.app,ADMIN_ENABLED=true,EXAM_DURATION_SECONDS=960
+      - --memory=512Mi
+      - --timeout=60
+      - --concurrency=20
+
+images:
+  - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend-ex1:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

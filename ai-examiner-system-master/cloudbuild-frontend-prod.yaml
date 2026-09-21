@@ -1,0 +1,50 @@
+steps:
+  # Step 1: Build the Docker image with QA mode off
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --build-arg
+      - NEXT_PUBLIC_QA_MODE=false
+      - --build-arg
+      - NEXT_PUBLIC_EXAM_DURATION_SECONDS=960
+      - -t
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend:latest
+      - ./frontend/exam-frontend
+
+  # Step 2: Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend:latest
+
+  # Step 3: Deploy to Cloud Run (student-facing — IAM-protected, accessed via Chrome kiosk)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - exam-frontend
+      - --image=me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend:latest
+      - --region=me-west1
+      - --no-allow-unauthenticated
+      - --set-env-vars=BACKEND_URL=https://ai-exam-backend-dx6rlviobq-zf.a.run.app,QA_MODE=false,EXAM_DURATION_SECONDS=960
+      - --memory=512Mi
+      - --timeout=60
+      - --concurrency=80
+
+  # exam-admin is deliberately NOT deployed here.
+  #
+  # It used to be, from this config's exam-frontend image and the non-ex1 backend. But
+  # exam-admin actually runs the exam-frontend-ex1 image against ai-exam-backend-ex1, and
+  # cloudbuild.yaml deploys it that way too. Since this trigger and the ex1 trigger both
+  # fire on every master push, the two definitions raced and exam-admin flipped between
+  # images depending on which build finished last (seen 2026-08-05: revision 00057 from
+  # here, corrected to 00059 by the full pipeline minutes later).
+  #
+  # exam-admin is now deployed only by cloudbuild-frontend-ex1.yaml — the pipeline that
+  # builds the image it runs — and by cloudbuild.yaml, both to me-west1 and europe-west1.
+
+images:
+  - me-west1-docker.pkg.dev/ai-examiner-system/ai-examiner-system-repo/exam-frontend:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

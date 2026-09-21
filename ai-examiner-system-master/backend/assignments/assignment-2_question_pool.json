@@ -1,0 +1,608 @@
+{
+  "analysis": {
+    "required_files": {
+      "implement": [
+        "src/part1.c",
+        "src/part2.c",
+        "src/part3.c"
+      ],
+      "provided": [
+        "src/Makefile",
+        "tests/sanity.py",
+        "REPORT.md"
+      ]
+    },
+    "file_functions": {
+      "src/part1.c": [
+        "flush_buffer(void) — writes first buffer_pos bytes of buffer to STDOUT_FILENO, loops to handle short writes, resets buffer_pos to 0, perror+exit on failure",
+        "my_write(const char *str) — copies bytes of str (excluding NUL) into buffer; when buffer fills exactly (buffer_pos == CHUNK_SIZE) calls write(STDOUT_FILENO, buffer, CHUNK_SIZE) and resets buffer_pos; continues with remaining bytes when str spills past remaining buffer space, including the case where the remaining tail itself exceeds CHUNK_SIZE",
+        "worker(id, user_msg, writes_per_worker) — loops writes_per_worker times, builds [Type: PROCESS] [ID: %d] [Seq: %03d] %s\\n via snprintf, passes line to my_write, calls flush_buffer at end before _exit(0)",
+        "main(argc, argv) — argv validation (exit 1 with Usage on argc != 4, reject non-positive ints), open(O_WRONLY|O_CREAT|O_TRUNC, 0644) + dup2 + close, record start time, fork ALL num_workers children into pids[] before any wait, child runs worker then _exit(0), parent waitpids each pid, defensive flush_buffer in parent, record end time, fprintf(stderr, \"elapsed_ms=%.3f\\n\", …), return 0"
+      ],
+      "src/part2.c": [
+        "buf_mtx declaration/initialization — single global pthread_mutex_t (PTHREAD_MUTEX_INITIALIZER or pthread_mutex_init)",
+        "flush_buffer(void) — same semantics as part1 but called by the parent after joins (per skeleton comment, workers do not call it)",
+        "my_write(const char *str) — same byte-copy and full-flush semantics as part1 but ALL access to buffer/buffer_pos (including the write() and the buffer_pos reset) is held inside one pthread_mutex_lock/unlock pair",
+        "worker(void *p) — takes worker_arg*, runs writes_per_worker iterations of snprintf with [Type: THREAD] then my_write, returns NULL (no flush_buffer in worker)",
+        "main(argc, argv) — argv validation, open+dup2+close, start time, allocate pthread_t[num_workers] and worker_arg[num_workers], pthread_create each, pthread_join each, single flush_buffer in parent after all joins, end time + stderr report, pthread_mutex_destroy, close fd, return 0"
+      ],
+      "src/part3.c": [
+        "g_semid — file-scope int, set by parent before fork so children inherit the integer in their address-space copy",
+        "flush_buffer(void) — semaphore-protected write of first buffer_pos bytes; same short-write loop and reset as part1",
+        "my_write(const char *str) — semop(g_semid, op_wait, 1) at entry, copy bytes / write(64) on full / reset, then a REQUIRED drain (if buffer_pos > 0, write(STDOUT_FILENO, buffer, buffer_pos) and reset) BEFORE semop(g_semid, op_post, 1) at exit",
+        "worker(id, user_msg, writes_per_worker) — snprintf [Type: PROCESS] lines and call my_write; final defensive flush_buffer; _exit(0)",
+        "main(argc, argv) — argv validation, open+dup2+close, ftok(argv[0], 'A'), semget(key, 1, IPC_CREAT|IPC_EXCL|0644) with EEXIST-retry path (semget(key,1,0) → semctl IPC_RMID → retry), semctl SETVAL to 1 with union semun, start time, fork ALL children (each runs worker then flush_buffer then _exit(0)) before any wait, waitpid each, end time + stderr report, semctl(g_semid, 0, IPC_RMID) in PARENT only, return 0"
+      ]
+    },
+    "os_concepts_used": [
+      {
+        "concept": "Open-file-table sharing across fork() (single offset shared by parent and children)",
+        "anchor": "README §1: 'when you fork(), the child inherits a copy of the file-descriptor table that points to the same entry in the open file table (and therefore the same offset). Multiple processes writing to fd 1 are all racing on the same offset.'"
+      },
+      {
+        "concept": "Output redirection via open + dup2 + write to STDOUT_FILENO",
+        "anchor": "README §1: 'The parent process must: 1. Open output.txt with the raw open() system call ... 2. Redirect STDOUT_FILENO (file descriptor 1) to that file ... 3. every byte written via write(STDOUT_FILENO, …) ends up in output.txt.'"
+      },
+      {
+        "concept": "File-descriptor table refcounting (dup2 + close)",
+        "anchor": "README §1 example: 'if (dup2(fd, STDOUT_FILENO) == -1) { perror(\"dup2\"); /* ... */ } close(fd);'"
+      },
+      {
+        "concept": "User-space buffering and amortized syscalls",
+        "anchor": "README §2: 'You are forbidden from calling write() once per character or once per message. You must implement a fixed-size buffering layer.'"
+      },
+      {
+        "concept": "Short writes from write() (write returning fewer bytes than requested)",
+        "anchor": "README §2.flush_buffer: 'Must handle short writes (i.e. write() returning fewer bytes than requested) by looping.'"
+      },
+      {
+        "concept": "Race conditions on a shared file offset (no in-memory sharing)",
+        "anchor": "Part1.md: 'With fork() (Part 1 / Part 3) each child gets its own copy of buffer and buffer_pos. The race is on the file offset only.'"
+      },
+      {
+        "concept": "Race conditions on shared memory (buffer/buffer_pos shared between threads)",
+        "anchor": "Part2.md: 'all threads share the same buffer and buffer_pos ... Two threads may simultaneously increment buffer_pos and both think they own the slot, overwriting each other's bytes.'"
+      },
+      {
+        "concept": "Critical-section scope (lock must cover all access to the shared state, including the flush)",
+        "anchor": "Part2.md: 'The lock must be held for the duration of any access to buffer/buffer_pos, including the flush call (write(STDOUT_FILENO, buffer, CHUNK_SIZE)) and the subsequent reset.'"
+      },
+      {
+        "concept": "Atomicity of a single write() syscall vs. atomicity of a multi-syscall logical operation",
+        "anchor": "Part3.md: 'Even though each individual write() is atomic at the kernel level on Linux, the sequence of writes that together produce one logical message is not. So the semaphore must protect the logical unit of work — the entire my_write call — not just the syscall.'"
+      },
+      {
+        "concept": "Mutex (user-space, per-process) vs System V semaphore (kernel IPC object, cross-process)",
+        "anchor": "Part3.md: 'the choice of synchronization primitive depends on the address-space context, not on the apparent shape of the lock. A user-space mutex is invisible across processes; a System V semaphore lives in the kernel IPC table and is reachable by any process that holds its semid.'"
+      },
+      {
+        "concept": "Process-private buffers after fork and the consequence for cross-process buffering",
+        "anchor": "Part3.md: 'In Part 3, each process has its own buffer. If my_write returns with bytes left over in this process's buffer ... then another process can run, fill its own buffer, and flush a chunk to the shared file before this process gets back to flush those leftover bytes.'"
+      },
+      {
+        "concept": "Stale System V IPC leftover (EEXIST) and the obligation to remove with IPC_RMID",
+        "anchor": "Part3.md: 'A failed semget with IPC_EXCL because of a stale leftover from a crashed previous run shows up as errno == EEXIST. Handle this: in that case, get the existing semid (call semget(key, 1, 0)), remove it with semctl(..., IPC_RMID), and try again.'"
+      },
+      {
+        "concept": "ftok deriving a key from a stable path",
+        "anchor": "Part3.md: 'The ftok(path, proj_id) call hashes the inode of path together with proj_id to produce a key. Use a path that is guaranteed to exist for the lifetime of the run — argv[0] (the program itself) is a good choice.'"
+      },
+      {
+        "concept": "Parent-only IPC cleanup obligation (children must not IPC_RMID)",
+        "anchor": "Part3.md: 'The parent must call semctl(semid, 0, IPC_RMID) before exiting. Children should not call IPC_RMID — only the parent.'"
+      },
+      {
+        "concept": "_exit vs exit (stdio cleanup / atexit handlers in children)",
+        "anchor": "Part1.md: 'A child should call _exit(0) after flush_buffer(), not exit(0). exit() runs atexit handlers and stdio cleanup, which can flush stdio buffers in a way that interacts badly with our manual buffering.'"
+      },
+      {
+        "concept": "fork-all-then-wait pattern (concurrency is destroyed by interleaving wait() with fork())",
+        "anchor": "Part1.md: 'You must fork all num_workers children before calling any wait(). The following pattern is forbidden because it serializes execution and hides the chaos ...'"
+      },
+      {
+        "concept": "semid as a plain integer index inheritable through fork(), with the kernel doing the cross-process work",
+        "anchor": "Part3.md: 'The semid returned by semget is just an integer index into a kernel IPC table. After fork(), the child inherits the parent's address space — including the integer holding the semid. Both parent and child use the same integer, and semop/semctl look up the same kernel object.'"
+      },
+      {
+        "concept": "Semaphore initial value semantics (binary mutex via SETVAL=1)",
+        "anchor": "Part3.md: 'initialize value to 1 (so it acts as a binary semaphore / mutex)'"
+      },
+      {
+        "concept": "IPC_EXCL flag — fail-if-exists detection of stale IPC",
+        "anchor": "Part3.md: 'int semid = semget(key, 1, IPC_CREAT | IPC_EXCL | 0644)'"
+      },
+      {
+        "concept": "stderr vs redirected stdout for diagnostics",
+        "anchor": "README §5: 'Print the elapsed wall-clock time in milliseconds to stderr (so it doesn't pollute output.txt)'"
+      }
+    ],
+    "file_interactions": "The three .c files are independent translation units (each has its own main) but share the same buffer/output contract: main() opens output.txt and dup2's it onto STDOUT_FILENO before any worker is spawned, then workers call my_write(line) with snprintf'd lines, and my_write internally calls write(STDOUT_FILENO, buffer, CHUNK_SIZE) when the buffer fills. flush_buffer writes the residual non-full bytes. Part 1: each child has a private copy of buffer/buffer_pos after fork, so the only inter-worker channel is the shared open-file-table entry (and its offset). Part 2: threads share buffer/buffer_pos AND the fd, so the buf_mtx must serialize all my_write bodies; the parent does the final flush_buffer after joins. Part 3: each child has a private buffer (like Part 1) but synchronizes through g_semid, an integer set by the parent before fork and looked up in the kernel IPC table by both parent and children via semop. The Makefile (provided) ties part1/part2/part3 build targets together with the right -pthread flag on part2; tests/sanity.py compiles via make and runs each binary, checking byte count for part1 and line-format for part2/part3, plus the elapsed_ms=… stderr line.",
+    "key_decisions": [
+      "How my_write handles a string longer than the remaining buffer space, and longer than CHUNK_SIZE itself: recursion vs. while-loop vs. pointer-and-counter — the README mandates the behavior but not the form.",
+      "How worker_arg structs are allocated and kept alive across the lifetime of each thread in Part 2 (stack array in main vs. per-thread heap allocations vs. one shared struct mutated — only some of these are correct).",
+      "Whether to wrap the semop boilerplate in Part 3 in a helper (e.g. sem_wait_/sem_post_) or inline two struct sembuf locals per my_write — affects readability and where the perror/exit logic lives.",
+      "The shape of the EEXIST-retry path in Part 3: one-shot retry vs. loop with a bound; what to do if the second create also fails.",
+      "Where the residual flush is performed and by whom: in Part 2 only by the parent post-join (skeleton comment is explicit); in Part 3 children also flush defensively (skeleton comment says my_write already drains, so a final flush_buffer is harmless but the student must reason about that).",
+      "Whether the snprintf line buffer is sized comfortably for the worst-case message (the skeleton suggests 256 — the README says the message is 'arbitrary')."
+    ],
+    "provided_vs_implement_source": "given"
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the short-write loop inside flush_buffer that copes with write() returning fewer bytes than the requested buffer_pos",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README §2.flush_buffer: 'Must handle short writes (i.e. write() returning fewer bytes than requested) by looping.'",
+      "examiner_notes": "Goal: confirm the student treats write()'s return value as authoritative — the actual number of bytes written — rather than assuming it returned everything. Ownership signal: the student can describe their loop variables (running pointer / remaining count) and explain when the loop terminates and what happens on a write() that returns -1 vs. 0 vs. a positive short count. A strong answer mentions at least one real cause of a short write (signal interruption, kernel internal limits, full pipe — the student doesn't need them all). A weak answer hand-waves about 'just looping' without naming what's incremented or decremented each iteration. The examiner can probe by asking what happens if the very first write returns 0 bytes.",
+      "bad_versions_to_avoid": "Avoid framing this as 'what is a short write' (trivia). It must be about the student's own loop structure and how it advances on a partial write.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q02",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "how my_write handles a single input string whose length exceeds the remaining space in buffer, including the case where the leftover tail itself exceeds CHUNK_SIZE",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README §2.my_write: 'if the input string is larger than the remaining space in the buffer, fill the buffer to the brim, flush it, and then continue copying the remaining bytes (recursing if necessary — the rest of the string itself may be larger than CHUNK_SIZE).'",
+      "examiner_notes": "Goal: surface the student's mental model of the partial-copy / flush / continue loop. They should be able to walk through a concrete example — e.g. buffer_pos=20, str has 100 bytes to copy — and describe the state of buffer_pos after each fill/flush step. Ownership signal: a student who wrote this can state without hesitation whether their solution recurses, while-loops, or tracks an offset, and can describe the termination condition. A student who can't articulate what happens when the remaining tail is itself >CHUNK_SIZE is the weak case. The examiner should pick a concrete (remaining-space, str-length) pair drawn from the student's code path.",
+      "bad_versions_to_avoid": "Don't accept 'I just copy it' as an answer — push for the per-iteration state. Don't ask in the abstract ('how does buffering work'); tie it to a concrete byte count.",
+      "conflicts_with": [
+        "q04"
+      ]
+    },
+    {
+      "id": "q03",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the exactly-full-on-arrival case: what happens in my_write when an input fills buffer precisely to buffer_pos == CHUNK_SIZE",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README §2.my_write: 'Flush rule: call the actual write(STDOUT_FILENO, buffer, CHUNK_SIZE) system call only when the buffer becomes completely full (i.e. buffer_pos == CHUNK_SIZE). After flushing, reset buffer_pos = 0.'",
+      "examiner_notes": "Goal: distinguish students who handled the 'exactly full' boundary from those who only thought about 'overflow'. The student should explain that hitting exactly CHUNK_SIZE triggers the same flush-and-reset, and that the next my_write call (or the same call's continuation, if input is longer) sees an empty buffer. Ownership signal: the student can describe whether their code checks `>=` or `==` against CHUNK_SIZE and why the choice is safe. Listen for whether they accidentally write CHUNK_SIZE+1 bytes (off-by-one) in their loop. The examiner can quote the specific equality/inequality the student wrote.",
+      "bad_versions_to_avoid": "Don't conflate this with the long-string question (q02). The point here is the equality boundary specifically. Avoid asking generic 'edge cases' — name the exact-full case.",
+      "conflicts_with": [
+        "q04"
+      ]
+    },
+    {
+      "id": "q04",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the requirement to set buffer_pos = 0 immediately after each full-buffer write inside my_write",
+      "dimension": "code_flow",
+      "difficulty": "easy",
+      "anchor": "README §2.my_write: 'call the actual write(STDOUT_FILENO, buffer, CHUNK_SIZE) system call only when the buffer becomes completely full (i.e. buffer_pos == CHUNK_SIZE). After flushing, reset buffer_pos = 0.'",
+      "examiner_notes": "Goal: confirm the student understands that buffer_pos is the next-write index and must restart at 0 after a flush. Ownership signal: the student can predict what would happen if the reset were missed — subsequent copies would write off the end of the array (buffer[64], buffer[65], …) into adjacent memory, and the full-buffer check would never trigger again (or trigger continuously, depending on the comparison). A weak answer says 'because we emptied it'. The examiner can ask 'if you removed that one line, what would the next my_write call do?'",
+      "bad_versions_to_avoid": "Don't make this a leading question that gives away the answer. Let the student name the out-of-bounds write in their own words.",
+      "conflicts_with": [
+        "q02",
+        "q03"
+      ]
+    },
+    {
+      "id": "q05",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the relationship between my_write's full-buffer flush (writes exactly CHUNK_SIZE) and the standalone flush_buffer (writes buffer_pos bytes), and why both exist",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "README §2: 'Flush rule: call the actual write(STDOUT_FILENO, buffer, CHUNK_SIZE) system call only when the buffer becomes completely full' AND 'flush_buffer(void) writes the first buffer_pos bytes of buffer to STDOUT_FILENO (this is the \"non-full flush\" used at end of execution).'",
+      "examiner_notes": "Goal: probe whether the student understands the two distinct flushes — the in-the-middle, fixed-size flush triggered by buffer fill, and the end-of-run partial flush that writes whatever is left. Ownership signal: the student can explain why the residual partial-flush exists (the total output is almost never an exact multiple of CHUNK_SIZE) and what would be missing from output.txt if they omitted the final flush_buffer. A weak answer collapses the two into 'they both flush' without distinguishing the byte count. The examiner can ask 'if you removed the final flush_buffer call from your code, how many bytes would be missing from output.txt in the worst case?'",
+      "bad_versions_to_avoid": "Don't ask which function calls which in the abstract. Tie the answer to the byte-count consequence of dropping the partial flush.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q06",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "what happens if the user-supplied message, combined with the format prefix, exceeds the size of the local snprintf line buffer in worker",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "Skeleton part1.c worker comment: 'char line[256]; snprintf(line, sizeof line, ...)' AND README §4: 'an arbitrary string, guaranteed not to contain \\n or NUL.'",
+      "examiner_notes": "Goal: probe whether the student noticed that the line buffer is finite while the message is described as 'arbitrary'. Ownership signal: the student can describe snprintf's overflow behavior: it writes at most sizeof-1 bytes, NUL-terminates, and returns the would-be length. The line passed to my_write is therefore truncated — no trailing \\n, missing tail of the message — and the validation regex `^...\\n$` would fail to match. A strong answer notes that the README never explicitly caps the message length, so a truly worst-case message could silently break the output, and they can describe what they would do about it (size the buffer using snprintf's return value first, or document the limit). A weak answer says 'snprintf is safe' without describing what 'safe' produces here. The examiner can ask 'what would the line look like for a 1000-byte message?'",
+      "bad_versions_to_avoid": "Don't go too deep into snprintf's standard. The point is: bounded buffer + unbounded input = possible silent truncation, and the student should be aware it can happen.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q07",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "why the parent stores pids in an array and waits in a separate post-fork loop, rather than waiting inline after each fork",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "Part1.md: 'You must fork all num_workers children before calling any wait(). The following pattern is forbidden because it serializes execution and hides the chaos.'",
+      "examiner_notes": "Goal: probe whether the student understands that wait() blocks the caller until the named child terminates, and therefore inlining waitpid in the fork loop serializes the workers (each fork would have to finish before the next is started). Ownership signal: the student can describe their two-loop structure and predict what their Part 1 output would look like if they used the forbidden one-loop pattern instead (no chaos, just clean sequential output). A student who can only repeat the README phrase 'it serializes' without explaining what blocks where has not internalized it. The examiner should point at the student's pids[] array and the two loops.",
+      "bad_versions_to_avoid": "Avoid asking what wait() does in the abstract. The question is about the student's loop structure and the observable consequence of breaking it.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q08",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "what would happen in the fork loop if the child branch (pids[i] == 0) called worker() but did not _exit afterward",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "Part1.md sample code: 'if (pids[i] == 0) { worker(i, message, writes_per_worker); _exit(0); }' AND README §6 error handling for fork.",
+      "examiner_notes": "Goal: probe whether the student understands that after fork(), both parent and child resume from the same point, and the child must terminate explicitly or it falls through to the next iteration of the fork loop and starts forking grandchildren of its own. Ownership signal: the student can describe the cascade — each grandchild also runs worker() and re-enters the loop, fork-bomb-style — and that the pids[] array (which the parent uses for waitpid) is meaningless for those grandchildren. A strong answer notes that the output would also be wildly wrong (each grandchild writes its own messages, byte counts explode). A weak answer says 'the child needs to exit' without explaining the loop fallthrough. The examiner can ask 'if you removed the _exit(0) line right after worker(), how many processes would your program create?'",
+      "bad_versions_to_avoid": "Don't conflate this with q09 (_exit vs exit). Here the issue is exit-vs-no-exit at all, not which exit function to use.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q09",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the choice of _exit(0) over exit(0) at the end of the child's worker path",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "Part1.md: 'A child should call _exit(0) after flush_buffer(), not exit(0). exit() runs atexit handlers and stdio cleanup, which can flush stdio buffers in a way that interacts badly with our manual buffering.'",
+      "examiner_notes": "Goal: surface understanding that the C runtime's exit() runs registered atexit handlers and flushes stdio buffers, whereas _exit() bypasses all of that and goes straight to the _exit syscall. Ownership signal: the student can name at least one specific thing exit() does that _exit() does not — atexit handlers, stdio flushing, or both. A strong answer connects this to fork()'s copy of the parent's address space (any stdio buffer state in the parent at fork-time exists in each child too). A student who just repeats 'it's safer' has not internalized it. The examiner can probe with 'what would actually appear in output.txt if you switched to exit()?'",
+      "bad_versions_to_avoid": "Don't accept 'exit is for C, _exit is the syscall' as sufficient — push for the concrete behavioral difference and why it matters here. Avoid making the question about which is faster.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q10",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the requirement that open() and dup2() of STDOUT_FILENO happen in the parent before any fork() rather than inside each child",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "README §1: 'This redirection happens in the parent before any child process is forked or any thread is created, so all workers inherit the redirected stdout.'",
+      "examiner_notes": "Goal: probe whether the student understands fd inheritance through fork(). Ownership signal: the student can predict what would happen if dup2 were moved into each child — each child would re-do the open with O_TRUNC, which truncates the file, so earlier siblings' bytes get wiped each time a new child opens; alternatively, even without O_TRUNC, each child would have its own open-file-table entry with its own offset, breaking the 'shared offset' property the rest of the assignment relies on. A weak answer just says 'the parent has to set it up first'. The examiner can point at the line where the student does dup2 and ask 'what specifically would change if you moved this to right after fork() in the child branch?'",
+      "bad_versions_to_avoid": "Don't accept 'so it works' as an answer. The student must trace the concrete consequence — O_TRUNC, separate offsets, or both — of moving the redirection.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q11",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the close(fd) call immediately after dup2(fd, STDOUT_FILENO), and whether it closes the file or merely the extra fd",
+      "dimension": "api_depth",
+      "difficulty": "easy",
+      "anchor": "README §1 example: 'if (dup2(fd, STDOUT_FILENO) == -1) { perror(\"dup2\"); /* ... */ } close(fd);'",
+      "examiner_notes": "Goal: surface understanding that an fd is a reference into the open-file-table, and dup2 created a second reference at STDOUT_FILENO; closing the original fd just removes one reference, not the underlying file. Ownership signal: the student can articulate that the file remains open via fd 1 and that subsequent write(STDOUT_FILENO, ...) calls still work. A strong answer notes that not closing the extra fd would leak it (and in programs that open many files, eventually exhaust the table). A weak answer is confused about whether the file is now 'closed'. The examiner can ask 'if you removed the close(fd) line, what observable behavior would change?'",
+      "bad_versions_to_avoid": "Avoid asking what dup2 does in the abstract — keep the question tied to the close that follows it.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q12",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "why the elapsed_ms timing line is sent to stderr rather than stdout",
+      "dimension": "api_depth",
+      "difficulty": "easy",
+      "anchor": "README §5: 'Print the elapsed wall-clock time in milliseconds to stderr (so it doesn't pollute output.txt)'",
+      "examiner_notes": "Goal: probe whether the student can connect the dup2 redirection to the stderr requirement. Ownership signal: the student articulates that stdout was redirected to output.txt at the start of main, so any printf or write(STDOUT_FILENO, ...) call after that lands in output.txt, breaking the line-format expectations. stderr was not redirected, so it still reaches the terminal. A weak answer just repeats 'because the README says stderr'. The examiner can ask 'what would actually appear in output.txt if you used printf instead?'",
+      "bad_versions_to_avoid": "Don't accept the rote answer. The student should connect this to the dup2 they wrote earlier.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q13",
+      "files": [
+        "src/part1.c"
+      ],
+      "focus": "the consequence of writes_per_worker exceeding 999 on the Seq field formatted as %03d and required to match \\d{3}",
+      "dimension": "edge_case",
+      "difficulty": "medium",
+      "anchor": "README §3 field rules: 'Seq | %03d | 0-indexed, zero-padded to 3 digits: 000 .. writes_per_worker-1.' AND the validation regex: '^\\[Type: (PROCESS|THREAD)\\] \\[ID: (\\d+)\\] \\[Seq: (\\d{3})\\] (.+)\\n$'",
+      "examiner_notes": "Goal: probe whether the student noticed that %03d only pads to a minimum of 3 digits and does not cap the field width — so seq=1234 becomes '1234' and the format regex (which requires exactly three digits) fails. Ownership signal: the student can describe what their snprintf line would look like at seq=1000 and trace the resulting mismatch against the validation regex. A strong answer notes that the README never bounds writes_per_worker, so this is an edge case the spec arguably under-specifies — and they can suggest what they would do about it (clamp input, change format, document the limit). A weak answer says 'I used %03d like the README told me'. The examiner can ask 'what would your output line look like at seq=1500?'",
+      "bad_versions_to_avoid": "Don't ask 'what does %03d mean' in the abstract. Tie it to the regex constraint and to the unbounded input.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q14",
+      "files": [
+        "src/part2.c"
+      ],
+      "focus": "the choice to hold buf_mtx for the entire body of my_write rather than locking only a narrower slice (e.g. only the buffer_pos increment)",
+      "dimension": "design_choice",
+      "difficulty": "hard",
+      "anchor": "Part2.md: 'Could you make this lock narrower — for example, lock only the increment of buffer_pos, then drop the lock, then do the actual byte copy? Try it on paper. What goes wrong? (Hint: think about a context switch right after the increment.)' AND 'The lock must be held for the duration of any access to buffer/buffer_pos, including the flush call (write(STDOUT_FILENO, buffer, CHUNK_SIZE)) and the subsequent reset.'",
+      "examiner_notes": "Goal: get the student to construct a concrete two-thread interleaving where a narrow lock fails. Ownership signal: the student can describe a specific scenario — e.g. thread A bumps buffer_pos from 30 to 50, drops the lock, gets preempted before copying; thread B bumps from 50 to 70, also drops, copies; thread A resumes and overwrites B's bytes — or a similar scenario where the flush races the copy. A strong answer names the specific shared variables (buffer, buffer_pos) and walks byte-level. A weak answer says 'race condition' without showing the interleaving. The examiner can push 'show me a concrete sequence of two threads' actions that breaks it.'",
+      "bad_versions_to_avoid": "Don't accept 'because the README says so' or generic talk of 'consistency'. The student must produce or trace a concrete interleaving. Avoid letting them substitute a Part 3 (file-offset) scenario — this is about in-memory buffer corruption.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q15",
+      "files": [
+        "src/part2.c"
+      ],
+      "focus": "how worker_arg structs are allocated and kept valid for the lifetime of each thread (stack array in main, heap-per-thread, or a single shared variable mutated in a loop)",
+      "dimension": "design_choice",
+      "difficulty": "medium",
+      "anchor": "Skeleton part2.c struct worker_arg definition AND main TODO step 3: 'allocate pthread_t[num_workers] and worker_arg[num_workers].'",
+      "examiner_notes": "Goal: surface understanding of the lifetime contract for pthread_create's arg pointer — the pointer must remain valid (and stable) for at least as long as the thread might dereference it. Ownership signal: the student can describe their concrete allocation strategy (stack array sized num_workers, indexed by i) and explain why the obvious-but-broken pattern — declaring a single struct in the for-loop and passing &arg to every pthread_create — would race (the same memory is overwritten on the next iteration, and threads might read the wrong id). A weak answer just says 'I used a struct'. The examiner can probe 'what would go wrong if you reused one variable across iterations?'",
+      "bad_versions_to_avoid": "Avoid asking 'how do you pass arguments to threads' in the abstract. The question is about lifetime, not syntax.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q16",
+      "files": [
+        "src/part2.c"
+      ],
+      "focus": "why the parent calls flush_buffer once after all pthread_joins, while the worker function deliberately does not call it",
+      "dimension": "cross_file",
+      "difficulty": "medium",
+      "anchor": "Skeleton part2.c worker comment: 'Note: do NOT call flush_buffer() here — the parent flushes once after all joins. (Why? Think about it.)' AND README §2 (the buffer is shared across all threads).",
+      "examiner_notes": "Goal: probe whether the student grasps that there is exactly ONE shared buffer across all threads, so a thread calling flush_buffer mid-run would interfere with bytes still being accumulated by other threads. Ownership signal: the student can articulate that the residual bytes at any moment belong to whichever thread happened to write last — and other threads are still queued — so a per-thread flush would race against ongoing my_write calls of peer threads. After joins, no other thread is running, so the residual is well-defined and the parent can safely flush it. A weak answer says 'we only need to flush once'. The examiner can probe 'what would happen if thread 3 called flush_buffer just before thread 5's my_write completes?'.",
+      "bad_versions_to_avoid": "Don't reduce this to a stylistic preference. The answer must explain what would actually go wrong if workers flushed.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q17",
+      "files": [
+        "src/part2.c"
+      ],
+      "focus": "what would go wrong in Part 2 if the buffer_pos reset (= 0) after a full-buffer flush were omitted, even though the mutex is correctly held throughout",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "README §2.my_write: 'After flushing, reset buffer_pos = 0.' AND Part2.md: 'The lock must be held for the duration of any access to buffer/buffer_pos, including the flush call ... and the subsequent reset.'",
+      "examiner_notes": "Goal: probe whether the student distinguishes mutual exclusion from correctness of the state left behind. The mutex protects buffer_pos against races, but the protection is useless if the value left behind is wrong. With buffer_pos stuck at 64, the next thread to acquire the lock would copy bytes starting at buffer[64] — out of bounds — and the full-buffer check would either never trigger again or trigger every call, depending on the comparison. Ownership signal: the student articulates that this is a *correctness* problem orthogonal to the *race* problem, and that the mutex alone doesn't save you. A weak answer says 'it would still race'. The examiner can ask 'the mutex is held — so why would output.txt still go wrong?'",
+      "bad_versions_to_avoid": "Don't let the student blame race conditions — the mutex is held, so the issue is the *state* the next holder inherits. Force them to distinguish exclusion from correctness.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q18",
+      "files": [
+        "src/part2.c"
+      ],
+      "focus": "the timing of pthread_mutex_destroy relative to pthread_join in the parent's cleanup",
+      "dimension": "error_handling",
+      "difficulty": "easy",
+      "anchor": "README §7: 'All mutexes are destroyed (Part 2).' AND skeleton part2.c main TODO step 8: 'pthread_mutex_destroy; cleanup; return 0.'",
+      "examiner_notes": "Goal: probe whether the student understands that destroying a mutex while any thread might still be holding or contending it is undefined behavior. Ownership signal: the student can articulate that pthread_mutex_destroy must happen *after* all pthread_join calls return, so no thread can still be inside a lock/unlock when the destroy runs. A weak answer says 'destroy is for cleanup' without ordering reasoning. The examiner can ask 'what if you destroyed it right after the last pthread_create?'",
+      "bad_versions_to_avoid": "Don't accept 'cleanup' as a full answer — push for the ordering constraint and the consequence of getting it wrong.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q19",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the placement of semop wait/post around the entire my_write body rather than only around the write() syscall",
+      "dimension": "code_flow",
+      "difficulty": "hard",
+      "anchor": "Part3.md: 'a single call to my_write may trigger multiple write() syscalls when the input string spans chunk boundaries ... If process A executes SYSCALL #1 and then process B's flush lands before A executes SYSCALL #2, the file ends up with A's first 64 bytes, then B's chunk, then A's next 6 bytes — A's message has been fragmented across the file. Even though each individual write() is atomic at the kernel level on Linux, the sequence of writes that together produce one logical message is not.'",
+      "examiner_notes": "Goal: surface the student's grasp that the lock protects a multi-syscall logical operation, not a single syscall. Ownership signal: the student can point to the semop_wait at the start of their my_write and the semop_post at the end (after the drain), and trace a concrete interleaving where a narrow lock around only write() would let process B's chunk land between A's two write() calls within one logical message. A strong answer names exact byte positions or counts. A weak answer just repeats 'the whole my_write'. The examiner can ask 'walk me through what happens if I move the semop_post to right after the write() inside the copy loop'.",
+      "bad_versions_to_avoid": "Don't accept 'because the README says wrap the whole my_write'. Force the student to produce the interleaving. Don't confuse this with the drain question (q20) — this is specifically about scope of the lock, assuming the drain were still there.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q20",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the requirement to flush leftover bytes from this process's private buffer before releasing the semaphore at the end of my_write",
+      "dimension": "edge_case",
+      "difficulty": "hard",
+      "anchor": "Part3.md: 'In Part 3, each process has its own buffer. If my_write returns with bytes left over in this process's buffer (e.g. the message was 50 bytes, and 16 bytes are now sitting in the buffer for next time), then another process can run, fill its own buffer, and flush a chunk to the shared file before this process gets back to flush those leftover 16 bytes. The file now contains: [head of this process's message] [other process's chunk] [tail of this process's message] — fragmented across the file ...'",
+      "examiner_notes": "Goal: make the student construct a concrete byte-level scenario showing carry-over fragmentation. Ownership signal: the student can describe two processes — A leaves 16 bytes in its private buffer after my_write returns; B runs its own my_write (with its own private buffer, also drained), flushing 64 bytes to the file; A re-enters my_write and finally flushes its leftover 16 bytes — and articulate that A's complete logical message now has B's chunk wedged inside it. The student should also be able to contrast this with Part 2, where there's only one buffer so 'leftover bytes in the buffer' belong to the next holder of the lock automatically. A weak answer just repeats 'because each process has its own buffer' without showing what specifically appears in the file. The examiner can ask 'tell me what the bytes in output.txt would look like if you skipped the drain.'",
+      "bad_versions_to_avoid": "Don't conflate this with q19 — the lock could still wrap the whole my_write here; the bug is the leftover state at release time. Don't accept 'each process has its own buffer' as a complete answer.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q21",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "whether flush_buffer in Part 3 is itself wrapped by the semaphore, and the reason the same protection is required for it as for my_write",
+      "dimension": "code_flow",
+      "difficulty": "medium",
+      "anchor": "Part3.md: 'flush_buffer must also be semaphore-protected for the same reason.' AND skeleton part3.c flush_buffer TODO: 'protected by the semaphore (semop(-1) … write … semop(+1)).'",
+      "examiner_notes": "Goal: probe whether the student protected flush_buffer's write() the same way they protected my_write's, and whether they understand that an unprotected flush_buffer could fragment output (its write() races other processes' my_write syscalls on the shared offset). Ownership signal: the student can point to their semop pair around the write inside flush_buffer and explain that without it, the parent's defensive final flush (or a worker's final flush) would write into the file unsynchronized with peer workers' my_write calls. A weak answer assumes 'no one else is running by then', missing that workers' final flush_buffer overlaps with each other. The examiner can ask 'when does your flush_buffer run, and is anything else writing at the same time?'",
+      "bad_versions_to_avoid": "Don't reduce this to repeating 'flush_buffer must be protected'. The student should explain when the race would actually occur.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q22",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the mechanism by which the integer g_semid set in the parent is usable by every child after fork()",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "Part3.md: 'The semid returned by semget is just an integer index into a kernel IPC table. After fork(), the child inherits the parent's address space — including the integer holding the semid. Both parent and child use the same integer, and semop/semctl look up the same kernel object. There is nothing in user memory that needs to be shared — the kernel does the work.'",
+      "examiner_notes": "Goal: probe whether the student understands that the semid is just an integer naming a kernel object, and the kernel is the cross-process glue — there is no shared user-memory state for the semaphore itself. Ownership signal: the student can articulate the contrast — a pthread_mutex_t variable placed at the same virtual address in two forked processes would be two different objects, because each process has its own copy of that memory — whereas the semid is a lookup key into a kernel-side table. A strong answer notes that this is precisely why mutexes don't synchronize across processes without shared memory tricks. A weak answer just repeats 'the kernel'. The examiner can ask 'where does the actual semaphore counter live?'",
+      "bad_versions_to_avoid": "Don't conflate this with q29 (mutex vs semaphore) — this question is specifically about how the int crosses fork, not about which primitive to choose.",
+      "conflicts_with": [
+        "q29"
+      ]
+    },
+    {
+      "id": "q23",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the choice to initialize the semaphore value to 1 via SETVAL, rather than 0 or 2",
+      "dimension": "api_depth",
+      "difficulty": "easy",
+      "anchor": "Part3.md: 'initialize value to 1 (so it acts as a binary semaphore / mutex)' AND the skeleton's example: 'union semun arg; arg.val = 1; semctl(g_semid, 0, SETVAL, arg);'",
+      "examiner_notes": "Goal: confirm the student grasps the semantics of P (sem_op=-1, blocks if value reaches 0) and V (sem_op=+1), and why a starting value of 1 means 'one process can hold it at a time'. Ownership signal: the student can predict what would happen if SETVAL set it to 0 (the first semop wait blocks forever — deadlock from the very first my_write) or to 2 (two processes can be inside the critical section simultaneously and the race re-appears). A weak answer says 'because that's binary mutex behavior' without tracing the consequence. The examiner can ask 'what observable behavior would you see if you accidentally set it to 0?'",
+      "bad_versions_to_avoid": "Avoid asking what a semaphore is in general. Tie the question to the specific initial value and what would break.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q24",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the choice of path passed to ftok (argv[0]) and the consequences of choosing a non-stable or non-existent path",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "Part3.md: 'The ftok(path, proj_id) call hashes the inode of path together with proj_id to produce a key. Use a path that is guaranteed to exist for the lifetime of the run — argv[0] (the program itself) is a good choice.'",
+      "examiner_notes": "Goal: probe whether the student understands that ftok needs a path that resolves to an inode at call time, and that the inode is what's hashed (not the path string). Ownership signal: the student can explain why argv[0] is a sensible choice (the binary they're running exists for the run's duration) and predict what happens if ftok is given a non-existent path (returns -1, errno=ENOENT). A strong answer notes that two different paths sharing an inode (hard links) would produce the same key, and that if the file is replaced (different inode) between two runs, you get different keys. A weak answer just says 'we use argv[0]' without saying why. The examiner can ask 'what error would your code emit if you passed \"/tmp/does_not_exist\" instead?'",
+      "bad_versions_to_avoid": "Don't ask what ftok does in the abstract — tie it to the student's choice and what would break with a different choice.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q25",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the role of the IPC_EXCL flag in the initial semget call versus omitting it",
+      "dimension": "api_depth",
+      "difficulty": "easy",
+      "anchor": "Part3.md: 'int semid = semget(key, 1, IPC_CREAT | IPC_EXCL | 0644)' AND 'A failed semget with IPC_EXCL because of a stale leftover from a crashed previous run shows up as errno == EEXIST.'",
+      "examiner_notes": "Goal: confirm the student understands what IPC_EXCL adds beyond IPC_CREAT — namely, it makes the call fail with EEXIST if the IPC object already exists, rather than silently returning the existing one. Ownership signal: the student can articulate that without IPC_EXCL, a stale leftover would be silently reused as-is — with whatever value it had been left at, possibly 0 (immediate deadlock on the first semop wait). With IPC_EXCL the program detects the leftover and explicitly recovers. A weak answer doesn't know what changes if IPC_EXCL is dropped. The examiner can ask 'what would your program do on a stale leftover if you omitted IPC_EXCL from the semget flags?'",
+      "bad_versions_to_avoid": "Don't ask what each flag does in isolation. Tie it to the recovery path the student wrote and to what they'd inherit on a stale leftover.",
+      "conflicts_with": [
+        "q26"
+      ]
+    },
+    {
+      "id": "q26",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the EEXIST handling path when semget(IPC_CREAT|IPC_EXCL) finds a stale leftover from a previous crashed run",
+      "dimension": "error_handling",
+      "difficulty": "medium",
+      "anchor": "Part3.md: 'A failed semget with IPC_EXCL because of a stale leftover from a crashed previous run shows up as errno == EEXIST. Handle this: in that case, get the existing semid (call semget(key, 1, 0)), remove it with semctl(..., IPC_RMID), and try again. Your program must not crash on a stale leftover.'",
+      "examiner_notes": "Goal: probe whether the student understands why this exists and what their code actually does on the second create. Ownership signal: the student can describe the three-step sequence (semget without IPC_EXCL to get the existing semid → semctl IPC_RMID → semget again with IPC_EXCL) and explain why this is necessary even though the program was just started (because the previous run might have been killed before its own IPC_RMID). A strong answer notes that the retry should be bounded (one retry, or a small loop) so a genuine permission error doesn't infinite-loop. A weak answer just says 'I check errno'. The examiner can ask how the student would verify their retry path actually runs.",
+      "bad_versions_to_avoid": "Avoid asking what errno is in the abstract. The question is about the student's specific recovery sequence.",
+      "conflicts_with": [
+        "q25"
+      ]
+    },
+    {
+      "id": "q27",
+      "files": [
+        "src/part3.c"
+      ],
+      "focus": "the rule that only the parent calls semctl(IPC_RMID), and the consequence of a child calling it or of nobody calling it",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "Part3.md: 'The parent must call semctl(semid, 0, IPC_RMID) before exiting. Children should not call IPC_RMID — only the parent.' AND 'A leaked semaphore takes up a slot until the kernel reboots or someone removes it manually with ipcrm.'",
+      "examiner_notes": "Goal: probe whether the student understands the destructive nature of IPC_RMID and why it must happen exactly once, by the last process that needs the semaphore. Ownership signal: the student can explain that if a child called IPC_RMID, other still-running children's semop calls on that semid would fail (EIDRM/EINVAL on Linux), and that if nobody calls it, the kernel IPC table leaks an entry visible to ipcs -s. A strong answer connects this to the EEXIST handling (q26) — leaks are exactly what creates stale leftovers for the next run. A weak answer says 'cleanup'. The examiner can ask 'what would ipcs -s show after your program exits?'",
+      "bad_versions_to_avoid": "Don't accept 'parent owns the semaphore' as a complete answer — push for what would observably break if a child called it.",
+      "conflicts_with": []
+    },
+    {
+      "id": "q29",
+      "files": [
+        "src/part2.c",
+        "src/part3.c"
+      ],
+      "focus": "the cross-part design choice of pthread_mutex_t for Part 2 versus a System V semaphore for Part 3, framed as what would happen if Part 3 had used a pthread_mutex_t instead",
+      "dimension": "api_depth",
+      "difficulty": "medium",
+      "anchor": "Part3.md: 'the choice of synchronization primitive depends on the address-space context, not on the apparent shape of the lock. A user-space mutex is invisible across processes; a System V semaphore lives in the kernel IPC table and is reachable by any process that holds its semid.' AND 'Contrast: a pthread_mutex_t placed at the same virtual address in two processes would still be two different objects, because each process has its own copy of that memory.'",
+      "examiner_notes": "Goal: surface understanding that the primitive must live in something reachable by all parties. Ownership signal: the student can predict the failure mode of using a pthread_mutex_t in Part 3 — after fork, each process has its own private copy of the mutex bytes, so pthread_mutex_lock on process A doesn't block pthread_mutex_lock on process B (they're locking different objects) — and the result would look exactly like Part 1 chaos. A strong answer notes that this could be repaired with mmap(MAP_SHARED) + a process-shared mutex attribute, which is why the issue is address space, not lock-mechanism per se. A weak answer says 'mutexes are for threads, semaphores are for processes' without explaining what specifically goes wrong. The examiner can probe 'so if you'd just replaced your sem ops with pthread_mutex_lock/unlock in part3.c, what would output.txt look like?'",
+      "bad_versions_to_avoid": "Don't accept the rote 'mutex=threads, semaphore=processes' answer. Push for the address-space reasoning. Don't let the student substitute a POSIX-semaphore answer — the comparison here is mutex vs. System V semaphore.",
+      "conflicts_with": [
+        "q22"
+      ]
+    },
+    {
+      "id": "q30",
+      "files": [
+        "src/part1.c",
+        "src/part3.c"
+      ],
+      "focus": "the precise structural difference between Part 1 and Part 3 that turns chaotic output into clean output, given both use fork() and both have private per-process buffers",
+      "dimension": "cross_file",
+      "difficulty": "hard",
+      "anchor": "Part3.md: 'Return to processes — but this time, fix the chaos. Discover that even though the buffer is no longer shared (each forked child has its own), you still need a synchronization primitive — and you need a different kind than in Part 2, because the resource you are protecting is no longer in your address space.'",
+      "examiner_notes": "Goal: force the student to articulate a precise structural difference, not just 'Part 3 has a semaphore'. Ownership signal: the student names exactly what is being mediated — the multi-syscall sequence on the shared file offset — and notes that the per-process buffers are not what's at stake in either part (the buffer race only mattered in Part 2 with shared threads). A strong answer points to the semop pair around my_write in part3.c, which has no analog in part1.c, and explains in concrete terms which bytes would land where without it. A weak answer says 'Part 3 has a lock and Part 1 doesn't', missing why a lock helps when each process already has its own buffer. The examiner can probe 'if both parts have private buffers, what is the lock in Part 3 actually protecting?'",
+      "bad_versions_to_avoid": "Don't accept 'Part 3 is synchronized'. Push for what the synchronization protects and which shared resource is at stake. Make the student name 'shared file offset' or 'multi-syscall logical message' explicitly.",
+      "conflicts_with": []
+    }
+  ],
+  "final_stats": {
+    "total": 30,
+    "by_file": {
+      "src/part1.c": 14,
+      "src/part2.c": 6,
+      "src/part3.c": 12
+    },
+    "by_dimension": {
+      "api_depth": 10,
+      "code_flow": 7,
+      "edge_case": 6,
+      "error_handling": 3,
+      "design_choice": 2,
+      "cross_file": 2
+    },
+    "by_difficulty": {
+      "easy": 6,
+      "medium": 18,
+      "hard": 6
+    }
+  },
+  "ta_report": {
+    "removed": [
+      {
+        "raw_id": "q25",
+        "reason": "Asks about the union semun declaration, which the skeleton provides verbatim ('union semun { int val; struct semid_ds *buf; unsigned short *array; };'). The 'ownership signal' reduces to SysV API trivia (which member SETVAL uses, what compile error occurs) rather than understanding of code the student authored — STEP A 'provided in skeleton' removal."
+      }
+    ],
+    "confirmed_conflicts": [
+      {
+        "pair": [
+          "q02",
+          "q04"
+        ],
+        "kept_both_because": "q02 walks the long-string copy/flush loop (medium, code_flow); q04 isolates the one-line buffer_pos reset (easy, code_flow). q04 is logically contained inside q02's flow, but the difficulty and probe angle differ — flag so the examiner picks at most one per exam."
+      },
+      {
+        "pair": [
+          "q03",
+          "q04"
+        ],
+        "kept_both_because": "q03 probes the ==/>= equality boundary that triggers the in-buffer flush (medium, edge_case); q04 probes the reset that follows it (easy, code_flow). Same code point, different aspect — kept for difficulty variety, flagged to avoid pairing."
+      },
+      {
+        "pair": [
+          "q22",
+          "q29"
+        ],
+        "kept_both_because": "q22 isolates the kernel-object-via-integer mechanism (medium, api_depth, part3 only); q29 is the cross-file design comparison framed as 'what if Part 3 used pthread_mutex_t' (medium, api_depth, hard cross_file framing). A strong answer to q29 substantially covers q22, but q22 also probes the mutex side directly — flagged to avoid pairing."
+      },
+      {
+        "pair": [
+          "q25",
+          "q26"
+        ],
+        "kept_both_because": "q26 walks the three-step EEXIST recovery sequence (medium, error_handling); q25 probes the IPC_EXCL flag role specifically (easy, api_depth). q26's answer implicitly contains q25's, but the easy/api_depth slot is genuinely useful on its own — flagged to avoid pairing on the same exam."
+      }
+    ],
+    "coverage_gaps": [
+      "design_choice stays at 2 questions (q14 lock scope in Part 2, q15 worker_arg lifetime in Part 2). The assignment offers few genuinely student-owned design decisions beyond these two; Part 1 and Part 3 are tightly prescribed by the README walkthrough, so no additional design_choice questions can be honestly anchored.",
+      "cross_file stays at 2 questions (q16 part2-internal contrast on flush placement, q30 Part1↔Part3 structural difference). The assignment only has three independent translation units with limited true cross-file interactions — most cross-part contrasts live more naturally inside api_depth (e.g. q29 mutex vs semaphore).",
+      "Part 2 has only 6 questions total — the file itself is small (mutex + thread plumbing on top of the same buffering contract as Part 1), so deep coverage is bounded by what the file actually contains."
+    ],
+    "needs_ta_attention": [
+      {
+        "id": "q13",
+        "note": "Edge case asks about writes_per_worker > 999 breaking the \\d{3} regex. The README never explicitly caps writes_per_worker, so this is a 'spec under-specified' probe rather than a 'did your implementation handle it' probe. Defensible as ownership (student should have noticed the implicit constraint while writing snprintf with %03d) but borderline — TA may want to skip for weaker students."
+      },
+      {
+        "id": "q11",
+        "note": "The exact close(fd)-after-dup2 sequence is shown verbatim in the README §1 example, so the student likely copied the pattern. Kept because the underlying concept (fd is a reference into the open-file-table; dup2 created a second reference; close just removes one) is real ownership material, but TA should accept short answers here and not push too hard on details the student couldn't have invented."
+      },
+      {
+        "id": "q12",
+        "note": "The README explicitly says 'Print the elapsed wall-clock time in milliseconds to stderr (so it doesn't pollute output.txt)'. The probe here is whether the student connects this to the dup2 they wrote themselves — which is a real ownership signal — but a student parroting the README will pass. TA may want to push the follow-up 'what would actually appear in output.txt if you used printf?' to separate parrot from understanding."
+      },
+      {
+        "id": "q28",
+        "note": "Hard error_handling question that mentions SEM_UNDO in the rubric — the README does NOT mention SEM_UNDO, so a student who doesn't bring it up is NOT wrong (the bad_versions note says as much, but the TA should be especially careful here). The minimum bar is 'semaphore stuck at 0, peers deadlock' — anything beyond that is bonus."
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+# ── Secrets — never commit these ─────────────────────────────────────────────
+.env
+*.pem
+*.key
+backend/keys/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# ── Database ──────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Student submissions (fetched at runtime, not source-controlled) ───────────
+backend/submissions/
+
+# ── Student PII — roster, emails, group lists ────────────────────────────────
+classroom_roster.csv
+private-data/
+
+# ── Local dev helpers — not for version control ───────────────────────────────
+useful-server-commands*
+
+# ── Node / Next.js ────────────────────────────────────────────────────────────
+frontend/exam-frontend/node_modules/
+frontend/exam-frontend/.next/
+frontend/exam-frontend/.env.local
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
+qa-test-data/qa-files/student-a/taskexec.c
+qa-test-data/qa-files/student-a/utils.c
+qa-test-data/qa-files/student-a/utils.h
+qa-test-data/qa-files/student-b/taskexec.c
+qa-test-data/qa-files/student-b/utils.c
+qa-test-data/qa-files/student-b/utils.h
+qa-test-data/qa-files/student-c/taskexec.c
+qa-test-data/qa-files/student-c/utils.c
+qa-test-data/qa-files/student-c/utils.h
+qa-test-data/qa-files.rar
+qa-test-data/qa-files/qa_assignment_readme.md
+frontend/exam-frontend/tsconfig.tsbuildinfo
+.claude/settings.local.json
+courses/linear-algebra/past_examples/*
+courses/_poc/*
