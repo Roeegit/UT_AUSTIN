@@ -1,1 +1,1 @@
-start cmd /k "cd backend && venv\Scripts\activate && uvicorn main:app --reload --port 8000" && start cmd /k "cd frontend && cd exam-frontend && npm run dev"
+start cmd /k "cd backend && venv\Scripts\activate && uvicorn main:app --host 0.0.0.0 --reload --port 8000" && start cmd /k "cd frontend && cd exam-frontend && npm run dev -- -H 0.0.0.0"
