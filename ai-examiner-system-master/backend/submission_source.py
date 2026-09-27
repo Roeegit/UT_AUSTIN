@@ -22,10 +22,10 @@ the Forms path usable offline (tests, scripts, admin tooling) without credential
 leaves github_stub itself untouched.
 """
 
+
+from __future__ import annotations
 import os
 from pathlib import Path
-from __future__ import annotations
-
 import forms_stub
 
 GITHUB = "github"
