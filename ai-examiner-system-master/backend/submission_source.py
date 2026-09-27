@@ -22,6 +22,8 @@ the Forms path usable offline (tests, scripts, admin tooling) without credential
 leaves github_stub itself untouched.
 """
 
+import os
+from pathlib import Path
 from __future__ import annotations
 
 import forms_stub
@@ -65,15 +67,36 @@ def fetch_and_save_submission(student_key: str, assignment_name: str):
 
 
 def load_local_submission(student_key, assignment_name):
-    import os
     files = {}
     
-    # Pointing directly to your exact folder location
-    base_dir = r"C:\Users\הניה\Desktop\ai_examiner\submissions"
-    
-    # Check both submissions/Rohithk01 and submissions/Rohithk01/austin-a
+    # 1. Check environment variable first (Cloud Run, Docker, .env)
+    env_dir = os.environ.get("LOCAL_SUBMISSIONS_DIR")
+    base_dir = None
+
+    if env_dir and os.path.exists(env_dir):
+        base_dir = env_dir
+    else:
+        # 2. Check standard relative locations across Windows, Mac, and Linux
+        current_file_dir = Path(__file__).resolve().parent
+        candidate_paths = [
+            current_file_dir / "submissions",
+            current_file_dir.parent / "submissions",
+            current_file_dir.parent.parent / "submissions",
+            Path.cwd() / "submissions",
+            Path("/submissions"),
+        ]
+        for candidate in candidate_paths:
+            if candidate.exists() and candidate.is_dir():
+                base_dir = str(candidate)
+                break
+
+    if not base_dir or not os.path.exists(base_dir):
+        return files
+
+    # Check both submissions/<student_key> and submissions/<student_key>/<assignment_name>
     sub_dir = os.path.join(base_dir, student_key)
-    target_dir = os.path.join(sub_dir, assignment_name) if os.path.exists(os.path.join(sub_dir, assignment_name)) else sub_dir
+    assignment_dir = os.path.join(sub_dir, assignment_name)
+    target_dir = assignment_dir if os.path.exists(assignment_dir) else sub_dir
     
     if os.path.exists(target_dir):
         for fname in os.listdir(target_dir):
@@ -81,8 +104,8 @@ def load_local_submission(student_key, assignment_name):
             if os.path.isfile(fpath):
                 with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
                     files[fname] = f.read()
+                    
     return files
-
 
 # def build_exam_context(assignment_readme: str, student_files: dict[str, str]) -> str:
 #     """Source-agnostic — both adapters produce the same {filename: content} dict."""
