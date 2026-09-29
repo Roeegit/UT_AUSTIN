@@ -6,19 +6,23 @@ Endpoints:
   POST /api/auth/start                   — begin an exam session (reads from GCS)
   POST /api/exam/answer                  — submit a student answer, receive next question
   GET  /api/admin/results/{github_username} — professor view: full log + final grade
+  GET  /api/dashboard/results            — professor dashboard: overview of all graded sessions
 
 Typical workflow:
   1. POST /api/admin/fetch-submission      ← professor runs this once per student
   2. POST /api/auth/start                  ← student (or cli_tester) runs this
   3. POST /api/exam/answer  (×3)
   4. GET  /api/admin/results/{github_username}
+  5. GET  /api/dashboard/results           ← professor views overview of all students
 
 Run with:
   cd backend
   uvicorn main:app --reload --port 8000
 """
 
+
 import json
+import sqlite3
 import os
 import random
 import smtplib
@@ -4381,3 +4385,52 @@ def exam_config():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+# ---------------------------------------------------------------------------
+# GET /api/dashboard/results
+# ---------------------------------------------------------------------------
+@app.get("/api/dashboard/results")
+def get_dashboard_results():
+    conn = sqlite3.connect("exam.db")
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    # Query all completed exam sessions
+    rows = c.execute("SELECT * FROM sessions WHERE status = 'graded' ORDER BY start_time DESC").fetchall()
+    
+    results = []
+    for row in rows:
+        # Extract questions and student answers from transcript
+        transcript = json.loads(row["transcript"]) if row["transcript"] else []
+        qa_pairs = []
+        current_q = None
+        for turn in transcript:
+            if turn.get("role") == "Examiner" and "questionText" in turn:
+                current_q = turn["questionText"]
+            elif turn.get("role") == "Student" and current_q:
+                qa_pairs.append({
+                    "question": current_q,
+                    "answer": turn.get("content")
+                })
+                current_q = None
+
+        # Extract numerical score from final_grade JSON
+        score = "N/A"
+        if row["final_grade"]:
+            try:
+                grade_data = json.loads(row["final_grade"])
+                score = grade_data.get("oralDefenseScore", "N/A")
+            except Exception:
+                pass
+
+        results.append({
+            "session_id": row["session_id"],
+            "username": row["github_username"],
+            "assignment": row["assignment_name"],
+            "score": score,
+            "report": row["professor_report"],
+            "qa_pairs": qa_pairs
+        })
+        
+    conn.close()
+    return results
