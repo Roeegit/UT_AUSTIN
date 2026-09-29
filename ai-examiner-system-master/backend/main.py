@@ -4386,51 +4386,92 @@ def exam_config():
 def health_check():
     return {"status": "ok"}
 
+
 # ---------------------------------------------------------------------------
 # GET /api/dashboard/results
 # ---------------------------------------------------------------------------
-@app.get("/api/dashboard/results")
-def get_dashboard_results():
-    conn = sqlite3.connect("exam.db")
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    
-    # Query all completed exam sessions
-    rows = c.execute("SELECT * FROM sessions WHERE status = 'graded' ORDER BY start_time DESC").fetchall()
-    
-    results = []
-    for row in rows:
-        # Extract questions and student answers from transcript
-        transcript = json.loads(row["transcript"]) if row["transcript"] else []
-        qa_pairs = []
-        current_q = None
-        for turn in transcript:
-            if turn.get("role") == "Examiner" and "questionText" in turn:
-                current_q = turn["questionText"]
-            elif turn.get("role") == "Student" and current_q:
-                qa_pairs.append({
-                    "question": current_q,
-                    "answer": turn.get("content")
-                })
-                current_q = None
 
-        # Extract numerical score from final_grade JSON
+@app.get("/api/dashboard/results")
+def get_dashboard_results(db: DBSession = Depends(get_db)):
+    from sqlalchemy import text
+    import json
+
+    # Bypass ORM model instantiation to prevent crashes from malformed datetimes in old rows
+    query = text("SELECT * FROM sessions WHERE status = 'graded' ORDER BY start_time DESC")
+    rows = db.execute(query).mappings().all()
+
+    def _safe_json(val):
+        if not val:
+            return None
+        if isinstance(val, (dict, list)):
+            return val
+        try:
+            return json.loads(val)
+        except Exception:
+            return None
+
+    results = []
+    for s in rows:
+        transcript = _safe_json(s.get("transcript")) or []
+        if not isinstance(transcript, list):
+            transcript = []
+
+        qa_pairs = []
+        pending_question = None
+
+        for turn in transcript:
+            if not isinstance(turn, dict):
+                continue
+                
+            role = str(turn.get("role", "")).lower()
+            raw_content = turn.get("content")
+            
+            # If the LLM returned a stringified JSON block, parse it
+            content = _safe_json(raw_content) if isinstance(raw_content, str) and raw_content.strip().startswith("{") else raw_content
+
+            if role == "examiner":
+                q_text = None
+                if isinstance(content, dict):
+                    # Skip the final sign-off banner
+                    if content.get("action") == "FINISH_EXAM":
+                        continue
+                    q_text = content.get("questionText")
+                elif isinstance(content, str):
+                    q_text = content
+
+                if not q_text:
+                    q_text = turn.get("questionText")
+                    
+                if q_text:
+                    pending_question = str(q_text)
+
+            elif role == "student":
+                ans_text = ""
+                if isinstance(content, str):
+                    ans_text = content
+                elif isinstance(content, dict):
+                    ans_text = content.get("text") or content.get("answer") or str(content)
+                else:
+                    ans_text = str(content or "")
+
+                qa_pairs.append({
+                    "question": pending_question or "Question prompt missing",
+                    "answer": str(ans_text)
+                })
+                pending_question = None
+
+        final_grade = _safe_json(s.get("final_grade")) or {}
         score = "N/A"
-        if row["final_grade"]:
-            try:
-                grade_data = json.loads(row["final_grade"])
-                score = grade_data.get("oralDefenseScore", "N/A")
-            except Exception:
-                pass
+        if isinstance(final_grade, dict):
+            score = final_grade.get("oralDefenseScore") or final_grade.get("finalWeightedGrade", "N/A")
 
         results.append({
-            "session_id": row["session_id"],
-            "username": row["github_username"],
-            "assignment": row["assignment_name"],
+            "session_id": str(s.get("session_id")),
+            "username": str(s.get("github_username")),
+            "assignment": str(s.get("assignment_name") or "austin-a"),
             "score": score,
-            "report": row["professor_report"],
+            "report": str(s.get("professor_report") or ""),
             "qa_pairs": qa_pairs
         })
-        
-    conn.close()
+
     return results
