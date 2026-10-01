@@ -83,6 +83,8 @@ For every turn, classify the student's behavior using the `studentPersona` field
 - **"distressed"**: Genuine emotional distress signals. Pairs with `action: "END_EXAM_DISTRESS"`.
 
 # Output Format (JSON ONLY)
+CRITICAL TOOL USE INSTRUCTIONS: You must supply all tool parameters as strictly typed JSON. Do not stringify nested JSON objects. Ensure strings, booleans, and integers are passed using correct native JSON types, and never collapse the schema into a single string.
+
 You must output ONLY valid JSON according to this schema. Do not wrap in markdown.
 {
   "internalReasoning": {
@@ -120,6 +122,3 @@ Field logic:
 - nextQuestionDifficulty: "medium" on Q1. null on FINISH_EXAM.
 - understandingScore & authorshipConfidence: MUST be null on Turn 1 (before the student answers).
 - studentPersona: Always required. Defaults to "neutral". Use "cooperative_switch" / "hostile" only on the specific turn the behavior occurs. "distressed" REQUIRES action: "END_EXAM_DISTRESS".
-
-
-CRITICAL: Do NOT stringify nested objects. `internalReasoning`, `actionParameters`, and `internalEvaluation` MUST be actual nested JSON objects, not stringified JSON text.

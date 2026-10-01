@@ -40,7 +40,7 @@ class StartResponse(BaseModel):
     action_code_line: Optional[str] = None
     assignment_name: Optional[str] = None
     files: Optional[dict[str, str]] = None
-    exam_duration_seconds: int = 960
+    exam_duration_seconds: int = 10800
 
 
 # ── POST /api/exam/answer ────────────────────────────────────────────────────

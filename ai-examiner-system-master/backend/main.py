@@ -1542,7 +1542,7 @@ def start_exam(
         if prior_full_id:
             id_txt_raw = prior_full_id
             print(f"[start] id.txt missing & roster miss — using prior-blob ID {prior_full_id!r} for accommodation check")
-    default_duration = int(os.environ.get("EXAM_DURATION_SECONDS", 960))
+    default_duration = int(os.environ.get("EXAM_DURATION_SECONDS", 10800))
     try:
         extended = is_extended_time(id_txt_raw)
     except Exception as exc:

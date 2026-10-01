@@ -387,7 +387,7 @@ EXAMINER_MODEL            = "claude-opus-5"
 GRADER_MODEL              = "claude-opus-5"
 CODE_REVIEWER_MODEL       = "claude-opus-5"
 ANTHROPIC_FALLBACK_MODEL  = "claude-sonnet-5"
-GEMINI_FALLBACK_MODEL     = "gemini-2.5-pro"   # requires GEMINI_API_KEY + google-generativeai
+GEMINI_FALLBACK_MODEL     = "gemini-3.8-flash"   # requires GEMINI_API_KEY + google-generativeai
 
 # Debug flags — flip these for cheaper/faster testing runs
 FORCE_SONNET          = False   # use claude-sonnet-5 for all Anthropic calls

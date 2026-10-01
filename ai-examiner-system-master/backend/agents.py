@@ -14,6 +14,7 @@ Contains:
 
 import json
 import os
+import re
 import random
 from typing import Literal, Optional
 
@@ -339,6 +340,127 @@ def _call_gemini_fallback(messages: list, system_prompt: str, tool: dict, temper
 # Core API call: Opus → Sonnet → Gemini on 529 overload
 # ---------------------------------------------------------------------------
 
+# def call_agent(
+#     client: anthropic.Anthropic,
+#     model: str,
+#     system_prompt: str,
+#     messages: list,
+#     tool: dict,
+#     temperature: float,
+# ) -> tuple:
+#     """
+#     Call the Anthropic API with tool-forcing.
+
+#     Cascade on 529 (overloaded):
+#       requested model  →  claude-sonnet-4-6  →  Gemini
+
+#     Returns (content_list, tool_use_id, parsed_dict, model_used).
+#     """
+#     if FORCE_SONNET:
+#         print(f"[DEBUG] FORCE_SONNET=True — using {ANTHROPIC_FALLBACK_MODEL}...")
+#         model = ANTHROPIC_FALLBACK_MODEL
+
+#     if FORCE_GEMINI_FALLBACK:
+#         print("[DEBUG] FORCE_GEMINI_FALLBACK=True — routing directly to Gemini...")
+#         content, fid, parsed = _call_gemini_fallback(messages, system_prompt, tool, temperature)
+#         return content, fid, parsed, GEMINI_FALLBACK_MODEL
+
+#     models_to_try = [model]
+#     if model != ANTHROPIC_FALLBACK_MODEL:
+#         models_to_try.append(ANTHROPIC_FALLBACK_MODEL)
+
+#     # --- DEBUG 1: EXAMINE THE EXACT OUTGOING SCHEMA ---
+#     print("\n" + "="*50)
+#     print("[DEBUG 1] OUTGOING TOOL SCHEMA TO ANTHROPIC:")
+#     print(json.dumps(tool.get("input_schema", {}), indent=2))
+#     print("="*50 + "\n")
+#     # --------------------------------------------------
+
+#     for current_model in models_to_try:
+#         try:
+#             response = client.messages.create(
+#                 model=current_model,
+#                 max_tokens=8169,
+#                 system=[{
+#                     "type": "text",
+#                     "text": system_prompt,
+#                     "cache_control": {"type": "ephemeral"},
+#                 }],
+#                 messages=messages,
+#                 tools=[tool],
+#                 tool_choice={"type": "tool", "name": tool["name"]},
+
+
+#                 # NOTE: `temperature` is intentionally NOT forwarded here. Opus 5 / Sonnet 5
+#                 # reject the `temperature` param outright (any value on Opus 5, any non-default
+#                 # value on Sonnet 5) with a 400 — see docs/VERTEX_AI_MIGRATION.md. `temperature`
+#                 # is still threaded through to the Gemini fallback below, which accepts it fine.
+#             )
+
+
+#             # --- DEBUG 2: EXAMINE THE EXACT INCOMING RESPONSE ---
+#             print("\n" + "="*50)
+#             print(f"[DEBUG 2] INCOMING RESPONSE FROM {current_model}:")
+#             print(f"Stop Reason: {response.stop_reason}")
+#             print(f"Usage: {response.usage}")
+#             print(f"Content: {response.content}")
+#             print("="*50 + "\n")
+
+#             if response.stop_reason == "refusal":
+#                 print(f"[!] {current_model} safety classifier refused request. Trying fallback...")
+#                 continue
+
+#             for block in response.content:
+#                 if block.type == "tool_use":
+#                     # 1. Reject genuinely empty inputs (mid-stream refusals)
+#                     if not block.input:
+#                         print(f"[!] {current_model} returned empty tool input — trying fallback...")
+#                         continue
+
+#                     # 2. MECHANICAL RECOVERY: Unpack stringified JSON hallucination
+#                     if isinstance(block.input.get("internalReasoning"), str):
+#                         try:
+#                             unpacked = json.loads(block.input["internalReasoning"])
+#                             if isinstance(unpacked, dict):
+#                                 # Merge the hidden keys (questionText, etc.) to the root level
+#                                 block.input.update(unpacked)
+                                
+#                                 # Rebuild internalReasoning as a proper dictionary so the UI doesn't crash
+#                                 if "assignmentAnalysis" in unpacked:
+#                                     block.input["internalReasoning"] = {
+#                                         "assignmentAnalysis": unpacked.get("assignmentAnalysis", ""),
+#                                         "studentEvaluationSoFar": unpacked.get("studentEvaluationSoFar", ""),
+#                                         "chosenTopicFocus": unpacked.get("chosenTopicFocus", ""),
+#                                         "adaptiveDifficultyStrategy": unpacked.get("adaptiveDifficultyStrategy", ""),
+#                                         "planForNextQuestion": unpacked.get("planForNextQuestion", "")
+#                                     }
+#                                 print(f"[DEBUG] Successfully recovered stringified JSON from {current_model}")
+#                         except Exception:
+#                             pass # If parsing fails, the validation below will catch it
+
+#                     # 3. Validation: Ensure we actually have the required keys now
+#                     if "questionText" not in block.input:
+#                         raise ValueError(f"Malformed JSON from {current_model} (missing questionText)")
+
+#                     return response.content, block.id, block.input, current_model
+            
+#             raise RuntimeError("No valid tool_use block in response.")
+
+
+#         # Catch both HTTP overloads and JSON structural errors
+#         except (anthropic.APIStatusError, ValueError) as e:
+#             if isinstance(e, anthropic.APIStatusError) and e.status_code not in (429, 529):
+#                 raise
+            
+#             label = "formatting error" if isinstance(e, ValueError) else f"HTTP {e.status_code}"
+#             print(f"[!] {current_model} {label} — trying next fallback...")
+
+#     # All Anthropic models exhausted/failed — fall back to Gemini
+#     print(f"[!] All Anthropic models failed. Switching to Gemini ({GEMINI_FALLBACK_MODEL})...")
+#     content, fid, parsed = _call_gemini_fallback(messages, system_prompt, tool, temperature)
+#     return content, fid, parsed, GEMINI_FALLBACK_MODEL
+
+
 def call_agent(
     client: anthropic.Anthropic,
     model: str,
@@ -346,13 +468,10 @@ def call_agent(
     messages: list,
     tool: dict,
     temperature: float,
-) -> tuple:
+    ) -> tuple:
     """
     Call the Anthropic API with tool-forcing.
-
-    Cascade on 529 (overloaded):
-      requested model  →  claude-sonnet-4-6  →  Gemini
-
+    Cascade on 529/429/Parsing Errors: requested model -> fallback Anthropic -> Gemini.
     Returns (content_list, tool_use_id, parsed_dict, model_used).
     """
     if FORCE_SONNET:
@@ -388,14 +507,7 @@ def call_agent(
                 messages=messages,
                 tools=[tool],
                 tool_choice={"type": "tool", "name": tool["name"]},
-
-
-                # NOTE: `temperature` is intentionally NOT forwarded here. Opus 5 / Sonnet 5
-                # reject the `temperature` param outright (any value on Opus 5, any non-default
-                # value on Sonnet 5) with a 400 — see docs/VERTEX_AI_MIGRATION.md. `temperature`
-                # is still threaded through to the Gemini fallback below, which accepts it fine.
             )
-
 
             # --- DEBUG 2: EXAMINE THE EXACT INCOMING RESPONSE ---
             print("\n" + "="*50)
@@ -411,31 +523,105 @@ def call_agent(
 
             for block in response.content:
                 if block.type == "tool_use":
-                    # Reject empty inputs produced by mid-stream refusals
                     if not block.input:
                         print(f"[!] {current_model} returned empty tool input — trying fallback...")
                         continue
+
+                    # --- 1. AGGRESSIVE MECHANICAL RECOVERY ---
+                    recovered_payload = {}
+                    
+                    # Inspect all string values in the input for hidden/corrupted JSON payloads
+                    for key, value in list(block.input.items()):
+                        if isinstance(value, str) and "{" in value:
+                            raw_str = value.strip()
+                            
+                            # Strategy A: Standard flat JSON string
+                            try:
+                                parsed = json.loads(raw_str)
+                                if isinstance(parsed, dict) and "questionText" in parsed:
+                                    recovered_payload = parsed
+                                    break
+                            except Exception:
+                                pass
+                                
+                            # Strategy B: Broken nested wrapper (Claude's signature error)
+                            # e.g., '{"assignmentAnalysis": "..." }, "questionNumber": 1, ... }'
+                            try:
+                                wrapped_str = '{"' + key + '": ' + raw_str.rstrip('}') + '}'
+                                parsed = json.loads(wrapped_str)
+                                if isinstance(parsed, dict) and "questionText" in parsed:
+                                    recovered_payload = parsed
+                                    break
+                            except Exception:
+                                pass
+
+                            # Strategy C: Regex brute-force extraction
+                            try:
+                                match = re.search(r'\{.*\}', raw_str, re.DOTALL)
+                                if match:
+                                    parsed = json.loads(match.group(0))
+                                    if isinstance(parsed, dict) and "questionText" in parsed:
+                                        recovered_payload = parsed
+                                        break
+                            except Exception:
+                                pass
+
+                    # Apply recovered data if any strategy succeeded
+                    if recovered_payload:
+                        block.input.update(recovered_payload)
+                        print(f"[DEBUG] Successfully recovered shattered JSON from {current_model}")
+
+                    # --- 2. SCHEMA NORMALIZATION ---
+                    # Rebuild internalReasoning
+                    ir = block.input.get("internalReasoning")
+                    if not isinstance(ir, dict):
+                        block.input["internalReasoning"] = {
+                            "assignmentAnalysis": block.input.get("assignmentAnalysis", ""),
+                            "studentEvaluationSoFar": block.input.get("studentEvaluationSoFar", ""),
+                            "chosenTopicFocus": block.input.get("chosenTopicFocus", ""),
+                            "adaptiveDifficultyStrategy": block.input.get("adaptiveDifficultyStrategy", ""),
+                            "planForNextQuestion": block.input.get("planForNextQuestion", "")
+                        }
+                        
+                    # Rebuild actionParameters
+                    ap = block.input.get("actionParameters")
+                    if isinstance(ap, str):
+                        try:
+                            block.input["actionParameters"] = json.loads(ap)
+                        except Exception:
+                            block.input["actionParameters"] = {"fileName": None, "codeLine": None}
+                    elif not isinstance(ap, dict):
+                        block.input["actionParameters"] = {"fileName": None, "codeLine": None}
+
+                    # Rebuild internalEvaluation
+                    ie = block.input.get("internalEvaluation")
+                    if isinstance(ie, str):
+                        try:
+                            block.input["internalEvaluation"] = json.loads(ie)
+                        except Exception:
+                            block.input["internalEvaluation"] = {}
+                    elif not isinstance(ie, dict):
+                        block.input["internalEvaluation"] = {}
+
+                    # --- 3. FINAL VALIDATION ---
+                    if "questionText" not in block.input:
+                        raise ValueError(f"Malformed JSON from {current_model} (missing questionText after recovery attempts)")
+
                     return response.content, block.id, block.input, current_model
             
             raise RuntimeError("No valid tool_use block in response.")
-            # ----------------------------------------------------
 
-
-            for block in response.content:
-                if block.type == "tool_use":
-                    return response.content, block.id, block.input, current_model
-            raise RuntimeError("No tool_use block in response — this should not happen.")
-        except anthropic.APIStatusError as e:
-            if e.status_code not in (429, 529):
+        except (anthropic.APIStatusError, ValueError, RuntimeError) as e:
+            if isinstance(e, anthropic.APIStatusError) and e.status_code not in (429, 529):
                 raise
-            label = "overloaded (529)" if e.status_code == 529 else "rate-limited (429)"
+            
+            label = "formatting error" if isinstance(e, (ValueError, RuntimeError)) else f"HTTP {e.status_code}"
             print(f"[!] {current_model} {label} — trying next fallback...")
 
-    # All Anthropic models overloaded — fall back to Gemini
-    print(f"[!] All Anthropic models overloaded. Switching to Gemini ({GEMINI_FALLBACK_MODEL})...")
+    # All Anthropic models exhausted/failed — fall back to Gemini
+    print(f"[!] All Anthropic models failed. Switching to Gemini ({GEMINI_FALLBACK_MODEL})...")
     content, fid, parsed = _call_gemini_fallback(messages, system_prompt, tool, temperature)
     return content, fid, parsed, GEMINI_FALLBACK_MODEL
-
 
 # ---------------------------------------------------------------------------
 # Examiner: Q1 (first turn — sends full student context)
