@@ -273,7 +273,7 @@ if COURSE_ID:
 # its real course's entry without needing a duplicate.
 COURSE_UI: dict[str, dict[str, str]] = {
     "": {   # legacy / Operating Systems — COURSE_ID unset
-        "title_he":        "מערכות הפעלה — הערכת ידע ומיומנות בתרגילים",
+        "title_he":        "Competitive Programming",
         "submission_kind": "code",
     },
     "linear-algebra": {
